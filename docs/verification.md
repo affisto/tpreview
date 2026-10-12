@@ -8,7 +8,7 @@ Date: 2026-10-12. Local host: macOS 15 / Darwin 24.6, Apple Silicon (arm64), Rus
 | --- | --- |
 | Prototype | `cargo run --example probe`: parsed Markdown fences; flowchart branch/cycle and request/reply sequence rendered to Unicode and SVG |
 | Static checks | `cargo fmt --all --check`; `cargo clippy --locked --all-targets -- -D warnings` |
-| Core tests | `cargo test --locked --all-targets`: Unicode width, typed Markdown extraction, supported/error grammar, model limits, large tables, ANSI safety, relative links, search, anchors, stale results, last-good results, unchanged-result cache, real PNG, non-TTY output, tiny viewports and special-file rejection |
+| Core tests | `cargo test --locked --all-targets`: **24 tests passed**; Unicode width, typed Markdown extraction, supported/error grammar, model limits, large tables, ANSI safety, relative links, search, anchors, stale results, last-good results, unchanged-result cache, real PNG, non-TTY output, tiny viewports and special-file rejection |
 | PTY integration | `python3 scripts/pty_smoke.py`: controlling-TTY keyboard, stdin pipe, no controlling terminal, fallback, atomic/burst saves, temporary syntax error, deletion/recreation, resize, normal/Ctrl+C/SIGTERM restoration |
 | Simulated graphics endpoint | PTY test answers Kitty/cell-size queries and verifies PNG placement + cleanup bytes and detail controls. It does **not** emulate or visually validate a terminal's graphics compositor |
 | Real tmux | `python3 scripts/tmux_smoke.py`: isolated tmux 3.6 server; text preview, relative link/fragment/back, search next, contents, preserve position across insertion, no forced navigation on another file's edit, shell restored |
@@ -17,7 +17,7 @@ Date: 2026-10-12. Local host: macOS 15 / Darwin 24.6, Apple Silicon (arm64), Rus
 
 PTY tests compare terminal attributes before/after, ignoring only Darwin's transient `PENDIN` bit. Testing exposed a Darwin `/dev/tty` readiness issue with `poll`; the input owner now uses `select`, verified by real PTY/tmux input. Renderer processes are spawned from the application executable, not from Python or Node.
 
-CI builds and tests all four configured platform targets. Consult the [Actions runs](https://github.com/affisto/tpreview/actions) for the exact commit/result; a configured job by itself is not a compatibility test result.
+All four platform jobs passed in [CI run 38246934617](https://github.com/affisto/tpreview/actions/runs/38246934617), executable-source commit `337cdaa8294c958264af5d0baf10a2a38d4e2042`. Each ran fmt, Clippy, all 24 core tests, release build and PTY/protocol checks; both Linux jobs also ran real tmux integration. The downloaded macOS ARM executable was additionally extracted outside the checkout and successfully rendered a Mermaid document there. Artifact SHA-256 checksums were verified before packaging the release. The subsequent documentation-only commit records these results; executable sources are unchanged.
 
 ## Environment matrix
 
@@ -30,8 +30,9 @@ CI builds and tests all four configured platform targets. Consult the [Actions r
 | Ghostty direct | Manual check pending | Manual check pending | Installed app access was refused by computer-control tooling; **not tested as a real Ghostty window** |
 | Kitty direct | Manual check pending | Manual check pending | Protocol implementation and simulated replies tested, actual compositor not tested |
 | Sixel/iTerm2-only terminals | Text fallback | Not implemented | No terminal-name heuristic enables unsupported image protocols |
-| Linux x86_64 / arm64 | CI target | Manual GUI check pending | Actual CI result is linked above; do not infer GUI/SSH behavior from headless CI |
-| macOS Intel | CI target | Manual GUI check pending | Actual CI result is linked above |
+| Ubuntu 24.04 x86_64 / arm64 | Passed in CI | Protocol simulation passed; GUI pending | Native builds, 24 tests, PTY, watch/restore and real tmux; no live GUI/SSH claim |
+| macOS 15 Intel | Passed in CI | Protocol simulation passed; GUI pending | Native build, 24 tests, PTY, watch/restore |
+| macOS 14 ARM64 | Passed in CI | Protocol simulation passed; GUI pending | Native build, 24 tests, PTY, watch/restore; downloaded executable tested locally |
 | SSH to macOS/Linux | Manual end-to-end check pending | Manual end-to-end check pending | Inline payloads avoid shared filesystem assumptions; no live remote-host session was used |
 | tmux image passthrough | Text fallback | Not enabled | Enabling `allow-passthrough` does not opt this release into image mode |
 
