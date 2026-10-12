@@ -1,0 +1,59 @@
+name: Build and verify
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Rust toolchain
+        run: rustup toolchain install 1.92.0 --profile minimal --component rustfmt --component clippy
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked --all-targets
+      - run: cargo build --locked --release
+      - name: Real PTY and simulated Kitty protocol
+        run: python3 scripts/pty_smoke.py target/release/tpreview
+      - name: Install tmux on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y tmux
+      - name: Isolated tmux integration
+        if: runner.os == 'Linux'
+        run: python3 scripts/tmux_smoke.py target/release/tpreview
+      - name: Package single executable and notices
+        env:
+          PACKAGE_TARGET: ${{ matrix.target }}
+        run: |
+          mkdir -p "dist/tpreview-$PACKAGE_TARGET"
+          cp target/release/tpreview LICENSE README.md THIRD_PARTY_NOTICES.md "dist/tpreview-$PACKAGE_TARGET/"
+          cp -R docs "dist/tpreview-$PACKAGE_TARGET/"
+          cp assets/OFL.txt "dist/tpreview-$PACKAGE_TARGET/FONT-LICENSE.txt"
+          tar -czf "dist/tpreview-$PACKAGE_TARGET.tar.gz" -C dist "tpreview-$PACKAGE_TARGET"
+          cd dist
+          shasum -a 256 "tpreview-$PACKAGE_TARGET.tar.gz" > "tpreview-$PACKAGE_TARGET.tar.gz.sha256"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tpreview-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
