@@ -470,3 +470,14 @@ fn named_pipe_is_rejected_without_waiting_for_a_writer() {
             .contains("regular file")
     );
 }
+
+#[test]
+fn truncated_terminal_reply_cannot_swallow_ctrl_c() {
+    let mut decoder = Decoder::default();
+    decoder.feed(b"\x1b_Gi=31;truncated");
+    assert!(decoder.next_event().is_none());
+    decoder.feed(b"\x03");
+    assert!(
+        matches!(decoder.next_event(),Some(InputEvent::Key(k)) if k.code==KeyCode::Char('c') && k.modifiers.contains(KeyModifiers::CONTROL))
+    );
+}

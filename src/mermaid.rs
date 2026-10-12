@@ -66,5 +66,8 @@ pub fn render(source: &str) -> Result<Rendered> {
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
     let svg = mmdflux::render_diagram(source, OutputFormat::Svg, &config)
         .map_err(|e| anyhow::anyhow!(e.to_string()))?;
-    Ok(Rendered { text, svg })
+    Ok(Rendered {
+        text: crate::source::safe(&text),
+        svg,
+    })
 }

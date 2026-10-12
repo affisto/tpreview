@@ -34,6 +34,20 @@ impl Decoder {
     }
     pub fn next_event(&mut self) -> Option<InputEvent> {
         loop {
+            // Even a malformed or truncated terminal reply cannot swallow the exit key.
+            if !self.paste
+                && self.buffer.first() == Some(&27)
+                && matches!(self.buffer.get(1), Some(b'_' | b']' | b'P' | b'^'))
+                && let Some(pos) = self.buffer.iter().position(|b| *b == 3)
+                && !self.buffer[..pos].windows(2).any(|w| w == b"\x1b\\")
+                && !self.buffer[..pos].contains(&7)
+            {
+                self.buffer.drain(..=pos);
+                return Some(InputEvent::Key(KeyEvent::new(
+                    KeyCode::Char('c'),
+                    KeyModifiers::CONTROL,
+                )));
+            }
             if self.buffer.is_empty() {
                 self.escape_at = None;
                 return None;

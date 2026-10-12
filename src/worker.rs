@@ -74,7 +74,7 @@ pub fn worker_main() -> Result<()> {
                     d.width = w;
                     d.height = h;
                 }
-                Err(e) => d.image_error = Some(e.to_string()),
+                Err(e) => d.image_error = Some(crate::source::safe(&e.to_string())),
             }
         }
         Ok(d)

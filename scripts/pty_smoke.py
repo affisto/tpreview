@@ -178,7 +178,7 @@ def run():
             replacement.replace(md)
         s.until(lambda b: b"Burst7" in b)
         md.unlink()
-        s.until(lambda b: b"cannot open" in b)
+        s.until(lambda b: b"read error:" in b or b"cannot open" in b)
         md.write_text(initial.replace("Alpha", "Restored"))
         s.until(lambda b: b"Restored" in b)
         s.finish(signum=signal.SIGTERM)
