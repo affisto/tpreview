@@ -164,6 +164,23 @@ Images are clipped to the visible document region, and owned image IDs are delet
 
 ## Development
 
+### VS Code visual editor
+
+The optional [VS Code extension](extensions/vscode/README.md) adds WYSIWYG Markdown editing, task lists, tables, and offline Mermaid previews. It saves ordinary Markdown files through VS Code and runs independently of the Rust CLI.
+
+**Install on another computer:** download the [VSIX package](https://github.com/affisto/tpreview/releases/download/extension-v0.1.0/tpreview-markdown-0.1.0.vsix), then use **Extensions → … → Install from VSIX…** in VS Code. No Node.js or Rust installation is needed. To build it yourself:
+
+```sh
+cd extensions/vscode
+npm ci
+npm run package
+code --install-extension ../../dist/tpreview-markdown-0.1.0.vsix
+```
+
+Then run **Tpreview: Open Visual Markdown Editor** for a Markdown file. See the extension README for source-preservation limits and testing instructions. The VSIX is distributed through GitHub Releases; it is not published to the Marketplace.
+
+### Terminal application
+
 ```sh
 cargo run -- --watch examples/demo.md
 cargo run -- --render text examples/errors.md

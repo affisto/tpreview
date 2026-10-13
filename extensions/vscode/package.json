@@ -1,0 +1,101 @@
+{
+  "name": "tpreview-markdown",
+  "displayName": "Tpreview Markdown",
+  "description": "Edit Markdown visually in VS Code, with offline Mermaid previews.",
+  "version": "0.1.0",
+  "publisher": "affisto",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/affisto/tpreview.git",
+    "directory": "extensions/vscode"
+  },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "wysiwyg",
+    "mermaid"
+  ],
+  "main": "./dist/extension.cjs",
+  "activationEvents": [],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "tpreview.markdown",
+        "displayName": "Tpreview Markdown",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "tpreview.openEditor",
+        "title": "Open Visual Markdown Editor",
+        "category": "Tpreview",
+        "icon": "$(open-preview)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "tpreview.openEditor",
+          "when": "resourceLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "tpreview.openEditor",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "check": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "test:ui": "playwright test",
+    "test:host": "node scripts/test-host.mjs",
+    "vscode:prepublish": "npm run check && npm run build",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {
+    "@milkdown/kit": "7.22.3",
+    "diff": "^8.0.4",
+    "mermaid": "12.2.0",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "unified": "11.0.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "1.96.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

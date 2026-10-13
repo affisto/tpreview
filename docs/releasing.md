@@ -1,5 +1,18 @@
 # Release bundles and installation
 
+## VS Code extension releases
+
+The extension uses independent `extension-vX.Y.Z` tags. Do not use a plain `v*` tag for it: those tags build the Rust CLI. An extension release is never marked GitHub's latest release, so the CLI's `/releases/latest/download/install.sh` URL keeps working.
+
+1. Update `extensions/vscode/package.json` and its lockfile, plus versioned extension download links in both READMEs.
+2. In `extensions/vscode`, run `npm ci`, `npm run check`, `npm test`, `npm run build`, `npm run test:ui`, `npm run test:host`, and `npm run package`.
+3. Commit the extension changes and push them. Tag that commit with the matching version, for example `git tag extension-v0.1.0`, then `git push origin extension-v0.1.0`.
+4. The **VS Code extension** workflow verifies the build, browser tests and real VS Code host test, then uploads the platform-independent VSIX, checksum and preview image to GitHub Releases. It publishes only after every verification passes.
+
+The package filename is derived from `package.json`, and tag builds reject a version mismatch. Reruns can finish a draft release but never overwrite a published release. Users download the VSIX and choose **Extensions → … → Install from VSIX…**; Node.js and Rust are only development dependencies. Marketplace publishing is separate and requires a configured Marketplace publisher account.
+
+## Terminal application releases
+
 The `Build and verify` Actions workflow produces macOS/Linux bundles for ARM64 and x86_64. Main pushes and pull requests retain these as downloadable Actions artifacts. A `v*` tag additionally publishes them to GitHub Releases after all native builds and installer tests pass. The installer runs with POSIX sh; Python is used only for build/test automation.
 
 ## Maintainer procedure

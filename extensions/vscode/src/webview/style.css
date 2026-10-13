@@ -1,0 +1,73 @@
+:root {
+  color-scheme: light dark;
+  --paper: var(--vscode-editor-background, #1e1e1e);
+  --ink: var(--vscode-editor-foreground, #d4d4d4);
+  --muted: var(--vscode-descriptionForeground, #a5a5a5);
+  --line: var(--vscode-widget-border, #454545);
+  --surface: var(--vscode-textCodeBlock-background, #292929);
+  --accent: var(--vscode-textLink-foreground, #75beff);
+  --focus: var(--vscode-focusBorder, #007fd4);
+  --font: var(--vscode-font-family, system-ui, sans-serif);
+  --mono: var(--vscode-editor-font-family, monospace);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: var(--font); overflow-x: clip; }
+body { padding-bottom: 38px; }
+button, select, input { font: inherit; color: inherit; }
+button, select { min-height: 30px; border: 1px solid transparent; border-radius: 4px; background: transparent; cursor: pointer; padding: 4px 9px; white-space: nowrap; }
+button:hover, select:hover { background: var(--surface); border-color: var(--line); }
+button:disabled, select:disabled { opacity: .45; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px 8px; }
+.identity { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.brand { font-weight: 650; letter-spacing: -.04em; font-size: 18px; }
+#filename { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actions { display: flex; gap: 4px; align-items: center; }
+#source { color: var(--accent); }
+#toolbar { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 8px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; background: var(--paper); }
+.divider { height: 18px; width: 1px; background: var(--line); margin: 0 6px; }
+select { background: var(--paper); }
+main { max-width: 860px; margin: 0 auto; padding: 34px 44px 96px; }
+.ProseMirror { outline: none; min-height: 60vh; font-size: 16px; line-height: 1.75; overflow-wrap: anywhere; }
+.ProseMirror > :first-child { margin-top: 0; }
+.ProseMirror p { margin: .7em 0; }
+.ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { line-height: 1.3; font-weight: 650; letter-spacing: -.025em; margin: 1.4em 0 .55em; }
+.ProseMirror h1 { font-size: 2.1em; } .ProseMirror h2 { font-size: 1.55em; } .ProseMirror h3 { font-size: 1.2em; }
+.ProseMirror a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.ProseMirror blockquote { margin: 1em 0; padding: 0 20px; border-left: 3px solid var(--line); color: var(--muted); }
+.ProseMirror ul, .ProseMirror ol { padding-left: 26px; }
+.list-content > p { margin: 0; }
+.task-item { list-style: none; position: relative; }
+.task-item > input { position: absolute; left: -24px; top: 7px; accent-color: var(--accent); }
+code, pre { font-family: var(--mono); font-size: .88em; }
+code { background: var(--surface); padding: .14em .3em; border-radius: 3px; }
+pre { margin: 0; padding: 16px; overflow-x: auto; white-space: pre; tab-size: 4; line-height: 1.6; }
+pre code { padding: 0; font-size: inherit; background: transparent; }
+.code-block { margin: 1.4em 0; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); overflow: hidden; }
+.code-controls { padding: 5px 12px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
+.code-controls button { min-height: 24px; font-size: 12px; }
+.diagram-preview { padding: 22px; text-align: center; overflow-x: auto; background: var(--paper); }
+.diagram-preview svg { max-width: 100%; height: auto; }
+.diagram-error { color: var(--vscode-errorForeground, #f48771); padding: 0 16px; font-size: 13px; }
+.ProseMirror table { border-collapse: collapse; width: 100%; margin: 1.3em 0; table-layout: fixed; }
+.ProseMirror td, .ProseMirror th { border: 1px solid var(--line); padding: 8px 12px; min-width: 40px; vertical-align: top; position: relative; }
+.ProseMirror th { background: var(--surface); font-weight: 600; }
+.ProseMirror td p, .ProseMirror th p { margin: 0; }
+.selectedCell { background: var(--vscode-editor-selectionBackground, #264f78); }
+.ProseMirror img { max-width: 100%; height: auto; }
+.image-wrapper { color: var(--muted); }
+.ProseMirror hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
+.ProseMirror-selectednode { outline: 2px solid var(--focus); }
+.ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; }
+.ProseMirror-gapcursor:after { content: ''; display: block; position: absolute; top: -2px; width: 20px; border-top: 1px solid var(--ink); animation: blink 1.1s steps(2, start) infinite; }
+.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
+@keyframes blink { to { visibility: hidden; } }
+footer { position: fixed; bottom: 0; width: 100%; background: var(--paper); border-top: 1px solid var(--line); padding: 7px 20px; font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; gap: 16px; }
+#notice, #conflict { padding: 12px 20px; background: var(--surface); border-bottom: 1px solid var(--line); font-size: 13px; }
+#draft { display: block; width: 100%; height: 140px; margin-top: 10px; background: var(--paper); color: var(--ink); border: 1px solid var(--line); font-family: var(--mono); }
+#fallback h1 { font-size: 22px; } #fallback p { color: var(--muted); line-height: 1.6; } #raw { margin-top: 24px; background: var(--surface); max-height: 60vh; }
+dialog { background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; max-width: 90vw; width: 420px; }
+dialog label { display: block; margin-bottom: 10px; } dialog input { width: 100%; padding: 9px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 14px; } dialog .actions { justify-content: end; }
+@media (max-width: 520px) { header { padding: 8px 12px; } #filename { display: none; } #toolbar { padding: 6px 10px; } main { padding: 26px 18px 70px; } footer > :last-child { display: none; } .ProseMirror { font-size: 15px; } }
+@media (prefers-reduced-motion: reduce) { .ProseMirror-gapcursor:after { animation: none; } }
