@@ -8,11 +8,68 @@ tpreview --watch docs/design.md
 
 `tpreview` is a native Rust CLI/TUI for macOS and Linux. The application needs **no Node.js, Python, browser, Mermaid CLI, server, or API key**. Mermaid parsing, layout, text rendering and PNG generation are included in the executable. Documents work offline.
 
-This is the first preview release. **Flowcharts and sequence diagrams** are the supported Mermaid families. Text rendering is the safe default in tmux. Direct Kitty-compatible image rendering is implemented and protocol-tested; actual Ghostty/Kitty display and SSH image transport still require manual validation. See the [compatibility and test record](docs/verification.md).
+This is an early release. **Flowcharts and sequence diagrams** are the supported Mermaid families. Text rendering is the safe default in tmux. Direct Kitty-compatible image rendering is implemented and protocol-tested; actual Ghostty/Kitty display and SSH image transport still require manual validation. See the [compatibility and test record](docs/verification.md).
 
 ## Install
 
-Download your platform archive from [GitHub Releases](https://github.com/affisto/tpreview/releases), extract it, and put `tpreview` on your `PATH`. The archive includes one executable, documentation and license notices; these extra files are not runtime dependencies. Verify the adjacent SHA-256 file before installing.
+Install the latest release with either **curl** or **wget**. The installer detects macOS/Linux and ARM64/x86_64, downloads the matching bundle, verifies SHA-256, checks the executable version, and installs to `~/.local/bin`. No Rust toolchain or sudo is needed.
+
+**curl**
+
+```sh
+curl -fsSL https://github.com/affisto/tpreview/releases/latest/download/install.sh | sh -s -- --downloader curl
+```
+
+**wget**
+
+```sh
+wget -qO- https://github.com/affisto/tpreview/releases/latest/download/install.sh | sh -s -- --downloader wget
+```
+
+If `~/.local/bin` is not on your PATH, add it in your shell configuration:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+tpreview --version
+tpreview --watch README.md
+```
+
+Choose an install directory or pin a version:
+
+```sh
+curl -fsSL https://github.com/affisto/tpreview/releases/download/v0.1.1/install.sh | sh -s -- --bin-dir "$HOME/bin"
+# An installer can also select a specific compatible release:
+curl -fsSL https://github.com/affisto/tpreview/releases/latest/download/install.sh | sh -s -- --version v0.1.1
+```
+
+`TPREVIEW_INSTALL_DIR`, `TPREVIEW_VERSION` and `TPREVIEW_DOWNLOADER` are equivalent environment options for the installer. Run `sh install.sh --help` after downloading the script for all options. The script never edits shell profiles, uses sudo or removes macOS quarantine settings. Failed downloads/checksums/version checks leave an existing executable intact. Re-running installs/upgrades the selected version.
+
+The script from each release defaults to that exact version, so a moving `latest` URL cannot mix bundles and checksums from different releases. `latest` selects the latest non-prerelease; to install an RC, use its explicit `/releases/download/vX.Y.Z-rc.1/install.sh` URL.
+
+### Download a bundle directly
+
+[GitHub Releases](https://github.com/affisto/tpreview/releases/latest) contains four native bundles:
+
+| Platform | Bundle |
+| --- | --- |
+| macOS Apple Silicon | `tpreview-aarch64-apple-darwin.tar.gz` |
+| macOS Intel | `tpreview-x86_64-apple-darwin.tar.gz` |
+| Linux ARM64 (glibc) | `tpreview-aarch64-unknown-linux-gnu.tar.gz` |
+| Linux x86_64 (glibc) | `tpreview-x86_64-unknown-linux-gnu.tar.gz` |
+
+Each bundle includes `tpreview`, `VERSION`, the installer, README, documentation and license notices. Only the executable is needed at runtime. The release includes adjacent `.sha256` files, `install.sh` and `SHA256SUMS`. The installer uses `tar` and either `sha256sum` or `shasum`, standard on the tested Linux/macOS systems. Linux bundles are built on Ubuntu 24.04 and require glibc; Alpine/musl needs a source build. macOS binaries are not notarized.
+
+For example, download the Linux x86_64 bundle with curl **or** wget:
+
+```sh
+curl -fLO https://github.com/affisto/tpreview/releases/latest/download/tpreview-x86_64-unknown-linux-gnu.tar.gz
+# or
+wget https://github.com/affisto/tpreview/releases/latest/download/tpreview-x86_64-unknown-linux-gnu.tar.gz
+```
+
+Download the adjacent `.sha256` URL, run `sha256sum -c filename.tar.gz.sha256` (Linux) or `shasum -a 256 -c filename.tar.gz.sha256` (macOS), extract the archive, and copy `tpreview` to your PATH. Checksums detect corrupted/mismatched downloads; they are not a separate signing key.
+
+### Build from source
 
 Or build from source with Rust **1.92 or later** and the platform's normal compiler/linker:
 
@@ -120,7 +177,7 @@ python3 scripts/pty_smoke.py
 python3 scripts/tmux_smoke.py
 ```
 
-Python and tmux are **test-only** dependencies. `terminal_probe` exits after a key or five seconds. Unit/integration tests cover Unicode, parser errors, controls, navigation, caching, stale results, PNG generation and non-TTY behavior. PTY tests exercise real terminal input and restoration, and simulate Kitty capability replies. The isolated tmux test uses a separate socket and `/dev/null` config.
+Python 3.11+ and tmux are **development/test-only** dependencies. Installer and packaging tests run with `python3 scripts/test_install.py`. Maintainers can follow the [automated release procedure](docs/releasing.md). `terminal_probe` exits after a key or five seconds. Unit/integration tests cover Unicode, parser errors, controls, navigation, caching, stale results, PNG generation and non-TTY behavior. PTY tests exercise real terminal input and restoration, and simulate Kitty capability replies. The isolated tmux test uses a separate socket and `/dev/null` config.
 
 Modules separate CLI (`cli`), source loading (`source`), Markdown (`document`), Mermaid (`mermaid`, `worker`), capabilities/input (`terminal`), image transport (`graphics`), wrapping (`layout`), application state (`app`), drawing (`ui`), and watching (`watch`).
 
