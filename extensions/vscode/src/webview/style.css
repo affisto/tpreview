@@ -19,9 +19,9 @@ button, select { min-height: 30px; border: 1px solid transparent; border-radius:
 button:hover, select:hover { background: var(--surface); border-color: var(--line); }
 button:disabled, select:disabled { opacity: .45; cursor: default; }
 button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px 8px; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px 8px; }
 .identity { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
-.brand { font-weight: 650; letter-spacing: -.04em; font-size: 18px; }
+.brand { white-space: nowrap; font-weight: 650; letter-spacing: -.04em; font-size: 18px; }
 #filename { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actions { display: flex; gap: 4px; align-items: center; }
 #source { color: var(--accent); }
@@ -29,7 +29,7 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .divider { height: 18px; width: 1px; background: var(--line); margin: 0 6px; }
 select { background: var(--paper); }
 main { max-width: 860px; margin: 0 auto; padding: 34px 44px 96px; }
-.ProseMirror { outline: none; min-height: 60vh; font-size: 16px; line-height: 1.75; overflow-wrap: anywhere; }
+.ProseMirror { outline: none; min-height: 60vh; font-size: 16px; line-height: 1.75; overflow-wrap: anywhere; white-space: pre-wrap; }
 .ProseMirror > :first-child { margin-top: 0; }
 .ProseMirror p { margin: .7em 0; }
 .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { line-height: 1.3; font-weight: 650; letter-spacing: -.025em; margin: 1.4em 0 .55em; }

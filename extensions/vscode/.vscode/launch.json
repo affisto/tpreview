@@ -1,7 +1,7 @@
 {
   "version": "0.2.0",
   "configurations": [{
-    "name": "Run Tpreview extension", "type": "extensionHost", "request": "launch",
+    "name": "Run MD Visual Editor", "type": "extensionHost", "request": "launch",
     "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
     "outFiles": ["${workspaceFolder}/dist/**/*.cjs"],
     "preLaunchTask": "build"

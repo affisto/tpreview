@@ -20,7 +20,10 @@ export const codeView = $view(codeBlockSchema.node, () => (initial, view, getPos
   const label = document.createElement('span');
   const toggle = document.createElement('button'); toggle.type = 'button'; toggle.textContent = 'Edit diagram';
   const pre = document.createElement('pre');
-  const contentDOM = document.createElement('code'); pre.append(contentDOM);
+  // Use the block itself as the editable root. Chromium can remove a nested
+  // <code> wrapper when replacing all its text, leaving a detached contentDOM.
+  const contentDOM = pre;
+  contentDOM.spellcheck = false;
   const preview = document.createElement('div'); preview.className = 'diagram-preview'; preview.contentEditable = 'false';
   const error = document.createElement('p'); error.className = 'diagram-error'; error.contentEditable = 'false'; error.hidden = true;
   controls.append(label, toggle); dom.append(controls, pre, preview, error);
@@ -66,7 +69,10 @@ export const codeView = $view(codeBlockSchema.node, () => (initial, view, getPos
     dom, contentDOM,
     update(next: Node) { if (next.type !== node.type) return false; node = next; refresh(); return true; },
     stopEvent(event: Event) { return controls.contains(event.target as globalThis.Node) || preview.contains(event.target as globalThis.Node); },
-    ignoreMutation(mutation: { type: string; target: globalThis.Node }) { return mutation.type !== 'selection' && !contentDOM.contains(mutation.target); },
+    ignoreMutation(mutation: { type: string; target: globalThis.Node }) {
+      if (mutation.type === 'attributes' && mutation.target === pre) return true;
+      return mutation.type !== 'selection' && !contentDOM.contains(mutation.target);
+    },
     destroy() { destroyed = true; ++generation; clearTimeout(timer); },
   };
 });

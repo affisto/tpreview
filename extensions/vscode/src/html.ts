@@ -3,8 +3,8 @@ export function editorHtml(script: string, style: string, cspSource: string, non
   return `<!doctype html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${escape(cspSource)} 'nonce-${escape(nonce)}'; style-src ${escape(cspSource)} 'unsafe-inline'; img-src ${escape(cspSource)} data:; font-src ${escape(cspSource)}; connect-src 'none';">
-<link rel="stylesheet" href="${escape(style)}"><title>Tpreview Markdown</title></head><body>
-<header><div class="identity"><span class="brand">tpreview</span><span id="filename"></span></div>
+<link rel="stylesheet" href="${escape(style)}"><title>MD Visual Editor</title></head><body>
+<header><div class="identity"><span class="brand">MD Visual Editor</span><span id="filename"></span></div>
 <div class="actions"><button id="undo" title="Undo (⌘/Ctrl Z)" aria-label="Undo">↶</button><button id="redo" title="Redo (⌘/Ctrl Shift Z)" aria-label="Redo">↷</button><button id="source" title="Open Markdown source">&lt;/&gt; Source</button><button id="save">Save</button></div></header>
 <nav id="toolbar" aria-label="Markdown formatting">
 <select id="block" aria-label="Text style"><option value="0">Paragraph</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option></select>

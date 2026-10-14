@@ -1,20 +1,24 @@
-# Tpreview Markdown for VS Code
+# MD Visual Editor
 
 A visual Markdown editor with offline Mermaid previews. Open an ordinary `.md` or `.markdown` file, edit its rendered content, and save back to the same file.
 
-This is the first extension version. It is a separate TypeScript/Milkdown application in the tpreview repository; it does not require or launch the Rust CLI. The CLI remains available for terminal reading.
+This early release is a separate TypeScript/Milkdown application in the tpreview repository; it does not require or launch the Rust CLI. The CLI remains available for terminal reading.
+
+[한국어 사용 가이드](https://github.com/affisto/tpreview/blob/main/docs/vscode-usage.ko.md) · [Watch the walkthrough](https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/md-visual-editor-walkthrough.mp4)
+
+![MD Visual Editor showing Markdown, tasks, a table and Mermaid](https://raw.githubusercontent.com/affisto/tpreview/main/docs/media/md-visual-editor/01-overview.png)
 
 ## Install on another computer
 
-Download [Tpreview Markdown 0.1.0](https://github.com/affisto/tpreview/releases/download/extension-v0.1.0/tpreview-markdown-0.1.0.vsix), then choose **Extensions → … → Install from VSIX…** in VS Code. Select the downloaded file. VS Code 1.96 or later is required; Node.js and Rust are not needed to install or use the package.
+Download [MD Visual Editor 0.1.1](https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/tpreview-markdown-0.1.1.vsix), then choose **Extensions → … → Install from VSIX…** in VS Code. Select the downloaded file. VS Code 1.96 or later is required; Node.js and Rust are not needed to install or use the package.
 
 Or, from the folder containing the download:
 
 ```sh
-code --install-extension tpreview-markdown-0.1.0.vsix
+code --install-extension tpreview-markdown-0.1.1.vsix
 ```
 
-See the [release page](https://github.com/affisto/tpreview/releases/tag/extension-v0.1.0) for the checksum and release notes. This extension is distributed through GitHub Releases, not the Marketplace. Install a newer VSIX to update it.
+See the [release page](https://github.com/affisto/tpreview/releases/tag/extension-v0.1.1) for the checksum and release notes. This extension is distributed through GitHub Releases, not the Marketplace. Install a newer VSIX to update it.
 
 ## Build locally
 
@@ -24,19 +28,19 @@ Requires Node.js 22 for development and VS Code 1.96 or later to run.
 cd extensions/vscode
 npm ci
 npm run package
-code --install-extension ../../dist/tpreview-markdown-0.1.0.vsix
+code --install-extension ../../dist/tpreview-markdown-0.1.1.vsix
 ```
 
 The build writes the VSIX and its SHA-256 checksum to the repository's `dist` directory.
 
-Open a Markdown file and run **Tpreview: Open Visual Markdown Editor** from the Command Palette. You can also right-click the editor tab → **Reopen Editor With… → Tpreview Markdown**. The extension is optional by default; **Configure default editor** can make it your Markdown default.
+Open a Markdown file and run **MD Visual Editor: Open Visual Markdown Editor** from the Command Palette. You can also right-click the editor tab → **Reopen Editor With… → MD Visual Editor**. The extension is optional by default; **Configure default editor** can make it your Markdown default.
 
 ## Editing
 
 - Edit headings, paragraphs, bold/italic/strikethrough text, links, lists, quotes, code, task checkboxes and GFM table cells directly.
 - Use the formatting bar, or standard Markdown typing shortcuts. **Table** inserts a 3×3 table; Tab moves between cells. **Task** inserts a task item.
 - **Diagram** inserts a Mermaid block. **Edit diagram** reveals its source; the preview updates as you type. Invalid syntax retains the last valid preview and displays an error.
-- **Source** opens the same file in VS Code's text editor. Run the Tpreview command to return to visual editing.
+- **Source** opens the same file in VS Code's text editor. Run the MD Visual Editor command to return to visual editing.
 - **Save**, ⌘/Ctrl S, and VS Code's normal file saving write the Markdown document. The status bar says when changes have reached the document, not when they have been saved to disk.
 - Undo/redo use the VS Code document history, including the toolbar and ⌘/Ctrl Z / Shift Z. Ctrl Y also requests redo.
 - ⌘/Ctrl-click a link to open an HTTPS/HTTP URL or a relative Markdown file. Anchor navigation within the visual editor is not implemented yet.
@@ -72,6 +76,10 @@ npm run package
 `test:host` launches an isolated VS Code profile, drives the actual extension with Playwright over a temporary local debugging port, and verifies the file on disk. It checks opening without writes, Mermaid, editing, save, undo/redo, tasks, external file updates, and source switching. On macOS it uses an installed VS Code; otherwise it downloads the stable test build. Set `VSCODE_EXECUTABLE` to choose another build. Linux CI needs `xvfb-run -a npm run test:host`. The test closes its process and removes its temporary profile. A screenshot is written to `../../dist/vscode-editor-preview.png`.
 
 Manual follow-ups: real Korean IME composition, accessibility with a screen reader, very large documents, and remote extension hosts.
+
+## Capture the usage guide
+
+With FFmpeg available, run `npm run build && npm run capture`. This opens an isolated VS Code profile with `demo/launch-notes.md` and records only that editor window through the Chrome DevTools screencast API. It creates seven PNG screenshots, an MP4 with Korean captions, a separate SRT subtitle file, the edited example, and capture metadata in `../../dist/md-visual-editor-media/`. The recording is silent. The capture script currently uses the macOS Apple SD Gothic Neo font for Korean captions; another OS needs that font or a suitable local Korean font substitution.
 
 ## Structure
 

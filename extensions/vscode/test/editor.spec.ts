@@ -22,11 +22,24 @@ test('renders Mermaid offline and retains its last valid result during invalid e
   await open(page);
   await expect(page.locator('.diagram-preview svg')).toBeVisible();
   await page.getByRole('button', { name: 'Edit diagram' }).click();
-  const code = page.locator('.code-block code'); await code.click();
+  const code = page.locator('.code-block pre'); await code.click();
   await page.keyboard.press('Home'); await page.keyboard.insertText('invalid >>>');
   await expect(page.locator('.diagram-error')).toContainText('last valid diagram');
   await expect(page.locator('.diagram-preview svg')).toBeVisible();
   expect(external).toEqual([]);
+});
+test('replacing all Mermaid source preserves the editable root and updates the document', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Edit diagram' }).click();
+  const code = page.locator('.code-block pre'); await code.click();
+  await code.evaluate(element => {
+    const range = document.createRange(); range.selectNodeContents(element);
+    getSelection()!.removeAllRanges(); getSelection()!.addRange(range);
+  });
+  await page.keyboard.insertText('flowchart LR\n  Draft --> Feedback');
+  await expect.poll(() => page.evaluate(() => window.__host.text)).toContain('Draft --> Feedback');
+  await expect(page.locator('.diagram-preview svg .nodeLabel').filter({ hasText: 'Feedback' })).toBeVisible();
+  await expect(code).toHaveText('flowchart LR\n  Draft --> Feedback');
 });
 test('updates from another editor and routes undo / redo through document history', async ({ page }) => {
   await open(page); await page.evaluate(() => window.externalChange('# External update\n\nHello\n'));

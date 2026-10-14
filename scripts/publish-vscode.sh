@@ -18,11 +18,13 @@ trap 'rm -f "$notes"' 0
 cat > "$notes" <<NOTES
 Visual Markdown editing inside VS Code, with bundled offline Mermaid previews.
 
+Display name: **MD Visual Editor**. The existing extension ID is retained so this package updates previous installations. See the [한국어 사용 가이드](https://github.com/$GH_REPO/blob/$RELEASE_TAG/docs/vscode-usage.ko.md) for screenshots and a walkthrough.
+
 ### Install on another computer
 
 1. Download [$filename](https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/$filename) below.
 2. In VS Code, open **Extensions → … → Install from VSIX…** and select the downloaded file.
-3. Open a Markdown file and run **Tpreview: Open Visual Markdown Editor** in the Command Palette.
+3. Open a Markdown file and run **MD Visual Editor: Open Visual Markdown Editor** in the Command Palette.
 
 Or run this command from your Downloads directory:
 
@@ -45,7 +47,7 @@ The package passed type checking, unit tests, browser interaction tests and an a
 NOTES
 if [ "$state" = missing ]; then
     gh release create "$RELEASE_TAG" --repo "$GH_REPO" --verify-tag --draft --latest=false \
-        --title "Tpreview Markdown for VS Code $version" --notes-file "$notes"
+        --title "MD Visual Editor $version" --notes-file "$notes"
 fi
 gh release upload "$RELEASE_TAG" "$assets/$filename" "$assets/$filename.sha256" "$assets/vscode-editor-preview.png" --repo "$GH_REPO" --clobber
 gh release edit "$RELEASE_TAG" --repo "$GH_REPO" --draft=false --latest=false --notes-file "$notes"

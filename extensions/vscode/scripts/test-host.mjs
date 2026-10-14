@@ -7,11 +7,12 @@ import { chromium, expect } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron';
 
 const scratch = await mkdtemp(join(tmpdir(), 'tpreview-vscode-'));
+const capture = process.argv.includes('--capture');
 const profile = join(scratch, 'profile');
-const file = join(scratch, 'notes.md');
-const initial = '# VS Code integration\n\nEdit this paragraph.\n\n- [ ] Verify save\n\n```mermaid\nflowchart LR\n  Edit --> Save\n```\n';
+const file = join(scratch, capture ? 'launch-notes.md' : 'notes.md');
+const initial = capture ? await readFile('demo/launch-notes.md', 'utf8') : '# VS Code integration\n\nEdit this paragraph.\n\n- [ ] Verify save\n\n```mermaid\nflowchart LR\n  Edit --> Save\n```\n';
 await mkdir(join(profile, 'User'), { recursive: true });
-await writeFile(join(profile, 'User/settings.json'), JSON.stringify({ 'workbench.startupEditor': 'none', 'window.restoreWindows': 'none', 'telemetry.telemetryLevel': 'off', 'update.mode': 'none', 'extensions.autoCheckUpdates': false, 'chat.disableAIFeatures': true }));
+await writeFile(join(profile, 'User/settings.json'), JSON.stringify({ 'workbench.startupEditor': 'none', 'window.restoreWindows': 'none', 'telemetry.telemetryLevel': 'off', 'update.mode': 'none', 'extensions.autoCheckUpdates': false, 'chat.disableAIFeatures': true, ...(capture ? { 'breadcrumbs.enabled': false, 'editor.minimap.enabled': false, 'workbench.activityBar.location': 'hidden', 'workbench.statusBar.visible': false, 'window.commandCenter': false, 'window.zoomLevel': 0, 'editor.fontSize': 16, 'workbench.colorTheme': 'Default Dark Modern' } : {}) }));
 await writeFile(file, initial);
 let executable = process.env.VSCODE_EXECUTABLE;
 if (!executable && process.platform === 'darwin') {
@@ -43,9 +44,12 @@ try {
     return !!page;
   }, { timeout: 30_000 }).toBe(true);
   page.setDefaultTimeout(15_000);
+  await page.bringToFront();
   await page.locator('.monaco-workbench').waitFor();
+  await expect(page.locator('.monaco-editor .view-lines').first()).toContainText(capture ? 'Launch notes' : 'VS Code integration');
+  await page.locator('.monaco-editor .view-lines').first().click();
   await page.keyboard.press('F1');
-  await page.locator('.quick-input-widget input').fill('>Tpreview: Open Visual Markdown Editor');
+  await page.locator('.quick-input-widget input').fill('>MD Visual Editor: Open Visual Markdown Editor');
   await expect(page.locator('.quick-input-list')).toContainText('Open Visual Markdown Editor');
   await page.keyboard.press('Enter');
   let frame;
@@ -55,10 +59,13 @@ try {
     }
     return false;
   }, { timeout: 30_000 }).toBe(true);
-  await expect(frame.locator('.ProseMirror h1')).toHaveText('VS Code integration');
+  await expect(frame.locator('.ProseMirror h1')).toHaveText(capture ? 'Launch notes' : 'VS Code integration');
   await expect(frame.locator('.diagram-preview svg')).toBeVisible({ timeout: 15_000 });
   await expect(frame.locator('#status')).toHaveText('Changes applied to document');
   if (await readFile(file, 'utf8') !== initial) throw new Error('Opening the editor modified the file');
+  if (capture) {
+    await (await import('./capture-walkthrough.mjs')).captureWalkthrough(page, frame, file);
+  } else {
   await frame.locator('.ProseMirror p').first().click();
   await page.keyboard.press('End'); await page.keyboard.insertText(' Saved visually.');
   await frame.getByRole('button', { name: 'Save', exact: true }).click();
@@ -81,6 +88,7 @@ try {
   await frame.getByRole('button', { name: '</> Source' }).click();
   await expect(page.locator('.monaco-editor textarea').first()).toBeAttached();
   console.log('PASS: real VS Code opens without writes; Mermaid, visual edits, save, undo, redo, tasks, external updates and source switching work.');
+  }
 } catch (error) {
   await mkdir('../../dist', { recursive: true });
   await writeFile('../../dist/vscode-host-test.log', logs);

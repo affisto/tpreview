@@ -4,7 +4,7 @@ if (!process.argv.includes('--watch')) await rm('dist', { recursive: true, force
 await mkdir('dist', { recursive: true });
 await mkdir('../../dist', { recursive: true });
 const lock = JSON.parse(await readFile('package-lock.json', 'utf8'));
-const notices = ['Third-party packages included in the Tpreview webview dependency tree.\n'];
+const notices = ['Third-party packages included in the MD Visual Editor webview dependency tree.\n'];
 for (const [path, entry] of Object.entries(lock.packages)) {
   if (!path || entry.dev) continue;
   const pkg = JSON.parse(await readFile(`${path}/package.json`, 'utf8'));
