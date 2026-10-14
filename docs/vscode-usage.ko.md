@@ -8,7 +8,7 @@ Markdown 파일을 렌더링된 화면에서 직접 편집하는 VS Code 확장�
 
 ## 1. 설치하고 편집기 열기
 
-1. [VSIX 설치 파일](https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/tpreview-markdown-0.1.1.vsix)을 내려받습니다.
+1. [VSIX 설치 파일](https://github.com/affisto/tpreview/releases/download/extension-v0.1.2/tpreview-markdown-0.1.2.vsix)을 내려받습니다.
 2. VS Code의 확장 화면에서 **⋯ → Install from VSIX…**를 선택하고 파일을 설치합니다.
 3. 편집할 `.md` 파일을 엽니다.
 4. Mac은 **⌘ Shift P**, Windows/Linux는 **Ctrl Shift P**로 명령 팔레트를 열고 **MD Visual Editor: Open Visual Markdown Editor**를 실행합니다.

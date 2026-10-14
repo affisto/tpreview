@@ -4,21 +4,53 @@ A visual Markdown editor with offline Mermaid previews. Open an ordinary `.md` o
 
 This early release is a separate TypeScript/Milkdown application in the tpreview repository; it does not require or launch the Rust CLI. The CLI remains available for terminal reading.
 
-[한국어 사용 가이드](https://github.com/affisto/tpreview/blob/main/docs/vscode-usage.ko.md) · [Watch the walkthrough](https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/md-visual-editor-walkthrough.mp4)
+## Watch it in action
 
-![MD Visual Editor showing Markdown, tasks, a table and Mermaid](https://raw.githubusercontent.com/affisto/tpreview/main/docs/media/md-visual-editor/01-overview.png)
+A 44-second walkthrough recorded in VS Code: edit text, format a paragraph, update tasks and table cells, change a Mermaid diagram, save, and switch to Markdown source. Korean captions are included; the video has no audio.
+
+<video controls preload="none" width="960" poster="https://raw.githubusercontent.com/affisto/tpreview/b0e2915/docs/media/md-visual-editor/01-overview.png" src="https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/md-visual-editor-walkthrough.mp4">
+  <a href="https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/md-visual-editor-walkthrough.mp4">Watch or download the walkthrough</a>
+</video>
+
+[Watch / download the MP4](https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/md-visual-editor-walkthrough.mp4) · [한국어 사용 가이드](https://github.com/affisto/tpreview/blob/main/docs/vscode-usage.ko.md)
+
+## Screenshots
+
+### Edit Markdown visually
+
+Work directly with headings, formatted text, task lists and tables in the same document.
+
+![Visual Markdown editing with a heading, paragraph, tasks, table and Mermaid diagram](https://raw.githubusercontent.com/affisto/tpreview/b0e2915/docs/media/md-visual-editor/01-overview.png)
+
+### Update tasks and tables
+
+Click a checkbox to complete a task, or edit a table cell without writing Markdown syntax.
+
+![A checked task and an updated status cell in a Markdown table](https://raw.githubusercontent.com/affisto/tpreview/b0e2915/docs/media/md-visual-editor/04-tasks-and-table.png)
+
+### Edit Mermaid and see the result
+
+Choose **Edit diagram** to change the source alongside its rendered preview. Rendering works offline.
+
+![Mermaid source and the resulting Draft, Review, Publish and Feedback diagram](https://raw.githubusercontent.com/affisto/tpreview/b0e2915/docs/media/md-visual-editor/05-mermaid-code.png)
+
+### Keep your Markdown source
+
+Choose **Source** to return to the normal VS Code text editor. Save writes back to the original `.md` file.
+
+![The Markdown source after editing text, checking a task, changing a table and updating Mermaid](https://raw.githubusercontent.com/affisto/tpreview/b0e2915/docs/media/md-visual-editor/07-markdown-source.png)
 
 ## Install on another computer
 
-Download [MD Visual Editor 0.1.1](https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/tpreview-markdown-0.1.1.vsix), then choose **Extensions → … → Install from VSIX…** in VS Code. Select the downloaded file. VS Code 1.96 or later is required; Node.js and Rust are not needed to install or use the package.
+Download [MD Visual Editor 0.1.2](https://github.com/affisto/tpreview/releases/download/extension-v0.1.2/tpreview-markdown-0.1.2.vsix), then choose **Extensions → … → Install from VSIX…** in VS Code. Select the downloaded file. VS Code 1.96 or later is required; Node.js and Rust are not needed to install or use the package.
 
 Or, from the folder containing the download:
 
 ```sh
-code --install-extension tpreview-markdown-0.1.1.vsix
+code --install-extension tpreview-markdown-0.1.2.vsix
 ```
 
-See the [release page](https://github.com/affisto/tpreview/releases/tag/extension-v0.1.1) for the checksum and release notes. This extension is distributed through GitHub Releases, not the Marketplace. Install a newer VSIX to update it.
+See the [release page](https://github.com/affisto/tpreview/releases/tag/extension-v0.1.2) for the checksum and release notes. For manual installations, install a newer VSIX to update the extension.
 
 ## Build locally
 
@@ -28,7 +60,7 @@ Requires Node.js 22 for development and VS Code 1.96 or later to run.
 cd extensions/vscode
 npm ci
 npm run package
-code --install-extension ../../dist/tpreview-markdown-0.1.1.vsix
+code --install-extension ../../dist/tpreview-markdown-0.1.2.vsix
 ```
 
 The build writes the VSIX and its SHA-256 checksum to the repository's `dist` directory.
