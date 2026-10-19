@@ -4,6 +4,7 @@ export type ClientMessage = Edit | { type: 'ready' | 'source' | 'save' | 'undo' 
 export type HostMessage =
   | ({ type: 'document'; baseUri: string; name: string } & Snapshot)
   | ({ type: 'ack'; id: number; accepted: boolean } & Snapshot)
+  | { type: 'anchor'; fragment: string }
   | { type: 'error'; message: string };
 
 export function isClientMessage(value: unknown): value is ClientMessage {

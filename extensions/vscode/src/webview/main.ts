@@ -9,7 +9,8 @@ import { Plugin } from '@milkdown/kit/prose/state';
 import { gapCursor } from '@milkdown/kit/prose/gapcursor';
 import type { ClientMessage, HostMessage } from '../protocol';
 import { DocumentSync } from './sync';
-import { reconcileMarkdown, sameMeaning, unsupportedReason } from './markdown';
+import { reconcileMarkdown, sameMeaning, unsupportedReason, splitFrontmatter, withFrontmatter } from './markdown';
+import { headingSlug } from '../links';
 import { codeView, imageView, taskView } from './views';
 import './style.css';
 
@@ -21,10 +22,12 @@ const sync = new DocumentSync(post);
 let editor: Editor | undefined, suppress = false, baseline = '', original = '', baseUri = '', name = '';
 let blocked = false, ready = false, composing = false, waitingAction: 'source' | 'save' | 'undo' | 'redo' | undefined;
 let messages = Promise.resolve();
+let pendingLink: string | undefined;
 
 function notice(message: string) { $('notice').textContent = message; $('notice').hidden = !message; }
 function persist() { vscode.setState(sync.settled ? {} : { draft: sync.draft, base: sync.current.text, uri: baseUri + name }); }
 function state() {
+  if (sync.conflict) pendingLink = undefined;
   $('status').textContent = sync.conflict ? 'Draft preserved · resolve conflict' : sync.pending ? 'Updating document…' : blocked ? 'Source editing available' : 'Changes applied to document';
   $('conflict').hidden = !sync.conflict;
   ($('reload') as HTMLButtonElement).disabled = !!sync.pending;
@@ -32,6 +35,7 @@ function state() {
   $('toolbar').querySelectorAll<HTMLButtonElement | HTMLSelectElement>('button, select').forEach(button => button.disabled = blocked || sync.conflict || !ready);
   editor?.action(ctx => ctx.get(editorViewCtx).setProps({ editable: () => !blocked && !sync.conflict }));
   persist();
+  if (pendingLink !== undefined && sync.settled && !composing) { const href = pendingLink; pendingLink = undefined; post({ type: 'link', href }); }
   if (waitingAction && sync.settled && !composing) { const type = waitingAction; waitingAction = undefined; post({ type }); }
 }
 function localChanged(markdown: string) {
@@ -41,7 +45,7 @@ function localChanged(markdown: string) {
     original = text; baseline = markdown;
     sync.edit(text); state();
   } catch (error) {
-    sync.draft = markdown; sync.conflict = true;
+    sync.draft = withFrontmatter(original, markdown); sync.conflict = true;
     notice(error instanceof Error ? error.message : 'Unable to preserve Markdown. Copy your draft.'); state();
   }
 }
@@ -59,7 +63,7 @@ const transactions = $prose(ctx => new Plugin({
         // Track the IME draft without shipping intermediate syllables to the host.
         // This also makes an external update conflict instead of discarding composition.
         try { sync.draft = reconcileMarkdown(original, baseline, markdown); }
-        catch { sync.draft = markdown; }
+        catch { sync.draft = withFrontmatter(original, markdown); }
         persist();
       } else localChanged(markdown);
     }
@@ -74,6 +78,10 @@ async function load(text: string) {
   suppress = true; blocked = false; ready = false; composing = false;
   notice('');
   const reason = unsupportedReason(text);
+  const { body, metadata, format } = splitFrontmatter(text);
+  $('frontmatter').hidden = !format || !!reason;
+  $('frontmatter-label').textContent = `Frontmatter · ${format ?? ''}`;
+  $('metadata').textContent = metadata;
   $('fallback').hidden = !reason; $('editor').hidden = !!reason;
   if (reason) {
     blocked = true; $('fallback-reason').textContent = reason; $('raw').textContent = text;
@@ -81,14 +89,14 @@ async function load(text: string) {
     try {
       if (!editor) {
         editor = await Editor.make().config(ctx => {
-          ctx.set(rootCtx, $('editor')); ctx.set(defaultValueCtx, text);
+          ctx.set(rootCtx, $('editor')); ctx.set(defaultValueCtx, body);
           ctx.update(remarkStringifyOptionsCtx, options => ({ ...options, bullet: '-' as const, fences: true }));
         })
           .use(commonmark).use(gfm).use(clipboard).use(indent).use(trailing)
           .use($prose(() => gapCursor())).use(transactions).use(codeView).use(taskView).use(imageView(() => baseUri)).create();
-      } else editor.action(replaceAll(text));
+      } else editor.action(replaceAll(body));
       baseline = editor.action(getMarkdown()); original = text;
-      if (!sameMeaning(text, baseline)) {
+      if (!sameMeaning(body, baseline)) {
         blocked = true; $('fallback').hidden = false; $('editor').hidden = true;
         $('fallback-reason').textContent = 'This document contains formatting the visual editor cannot safely round-trip. The source editor preserves it.'; $('raw').textContent = text;
       }
@@ -119,6 +127,8 @@ window.addEventListener('message', event => {
     } else if (message.type === 'error') {
       notice(message.message);
       if (sync.pending) { sync.pending = undefined; sync.conflict = true; state(); }
+    } else if (message.type === 'anchor') {
+      jumpToHeading(message.fragment);
     }
   }).catch(error => notice(String(error)));
 });
@@ -131,6 +141,7 @@ function hostAction(action: 'source' | 'save' | 'undo' | 'redo') {
 }
 for (const action of ['source', 'save', 'undo', 'redo'] as const) $(action).addEventListener('click', () => hostAction(action));
 $('fallback-source').addEventListener('click', () => hostAction('source'));
+$('frontmatter-source').addEventListener('click', () => hostAction('source'));
 $('reload').addEventListener('click', async () => { sync.reload(); await load(sync.current.text); });
 $('copy').addEventListener('click', () => {
   const draft = $('draft') as HTMLTextAreaElement; draft.focus(); draft.select();
@@ -171,6 +182,30 @@ $('link-dialog').addEventListener('close', () => {
 });
 $('editor').addEventListener('click', event => {
   const link = (event.target as HTMLElement).closest('a');
-  if (link) { event.preventDefault(); if (event.metaKey || event.ctrlKey) post({ type: 'link', href: link.getAttribute('href') ?? '' }); }
-});
+  if (link) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.altKey) return;
+    if (composing || sync.conflict) { notice('Finish editing or resolve the draft conflict before opening a link.'); return; }
+    if (editor && !blocked) localChanged(editor.action(getMarkdown()));
+    sync.flush();
+    if (!sync.settled) { pendingLink = link.getAttribute('href') ?? ''; return; }
+    post({ type: 'link', href: link.getAttribute('href') ?? '' });
+  }
+}, true);
+function jumpToHeading(fragment: string) {
+  if (!fragment) { window.scrollTo(0, 0); return; }
+  const counts = new Map<string, number>();
+  for (const heading of $('editor').querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6')) {
+    const base = headingSlug(heading.textContent ?? '');
+    const count = counts.get(base) ?? 0; counts.set(base, count + 1);
+    const slug = count ? `${base}-${count}` : base;
+    if (slug === fragment) {
+      heading.scrollIntoView({ block: 'start' });
+      heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true });
+      notice(''); return;
+    }
+  }
+  notice(`Heading not found: ${fragment}`);
+}
 post({ type: 'ready' });

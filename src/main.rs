@@ -37,6 +37,7 @@ fn run() -> Result<()> {
         if io::stdout().is_terminal() {
             let _ = crossterm::execute!(
                 io::stdout(),
+                crossterm::event::DisableMouseCapture,
                 crossterm::cursor::Show,
                 crossterm::terminal::LeaveAlternateScreen
             );
@@ -149,8 +150,8 @@ fn print_document(source: &str, font: Option<PathBuf>) -> Result<()> {
     // Keep destinations available in plain output as well as in the interactive link selector.
     for block in &doc.blocks {
         if block.kind != Kind::Diagram {
-            for (label, target) in &block.links {
-                writeln!(out, "[{label}]: {target}")?;
+            for link in &block.links {
+                writeln!(out, "[{}]: {}", link.label, link.target)?;
             }
         }
     }

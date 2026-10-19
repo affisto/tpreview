@@ -2,7 +2,7 @@
   "name": "tpreview-markdown",
   "displayName": "MD Visual Editor",
   "description": "Edit Markdown visually in VS Code, with offline Mermaid previews.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "affisto",
   "license": "MIT",
   "repository": {

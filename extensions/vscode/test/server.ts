@@ -11,6 +11,7 @@ window.acquireVsCodeApi=()=>({getState:()=>window.__host.state,setState:s=>windo
  if(m.type==='ready')setTimeout(()=>window.externalChange(h.text,false),0);
  if(m.type==='edit')setTimeout(()=>{const accepted=m.version===h.version;if(accepted){h.history.push(h.text);h.future=[];h.text=m.text;h.version++;h.edits.push(m)}window.postMessage({type:'ack',id:m.id,accepted,text:h.text,version:h.version},'*')},h.delay);
  if(m.type==='save')h.saved=h.text;
+ if(m.type==='link'&&m.href.startsWith('#'))window.postMessage({type:'anchor',fragment:decodeURIComponent(m.href.slice(1))},'*');
  if(m.type==='undo'&&h.history.length){h.future.push(h.text);window.externalChange(h.history.pop())}
  if(m.type==='redo'&&h.future.length){h.history.push(h.text);window.externalChange(h.future.pop())}
 }});
@@ -24,4 +25,4 @@ window.externalChange=(text,increment=true)=>{const h=window.__host;h.text=text;
     if (!path.startsWith(resolve('dist/webview') + '/')) throw new Error();
     res.setHeader('Content-Type', extname(path) === '.css' ? 'text/css' : 'text/javascript'); res.end(await readFile(path));
   } catch { res.statusCode = 404; res.end(); }
-}).listen(4178, '127.0.0.1');
+}).listen(Number(process.env.TPREVIEW_TEST_PORT ?? 4178), '127.0.0.1');

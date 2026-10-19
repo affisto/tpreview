@@ -1,5 +1,6 @@
 use crate::source::safe;
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
+use std::ops::Range;
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,6 +10,7 @@ pub enum Kind {
     Quote,
     List,
     Code(String),
+    Frontmatter(String),
     Table,
     Rule,
     Diagram,
@@ -18,16 +20,44 @@ pub struct Block {
     pub kind: Kind,
     pub text: String,
     pub anchor: String,
-    pub links: Vec<(String, String)>,
+    pub links: Vec<Link>,
+}
+#[derive(Debug, Clone)]
+pub struct Link {
+    pub label: String,
+    pub target: String,
+    pub range: Range<usize>,
 }
 #[derive(Debug, Clone, Default)]
 pub struct Document {
     pub blocks: Vec<Block>,
 }
 impl Document {
+    pub fn plain(input: &str, language: &str) -> Self {
+        Self {
+            blocks: vec![Block {
+                kind: Kind::Code(language.into()),
+                text: safe(&input.replace("\r\n", "\n")).replace('\t', "    "),
+                anchor: "document".into(),
+                links: Vec::new(),
+            }],
+        }
+    }
     pub fn parse(input: &str) -> Self {
-        let input = safe(input).replace('\t', "    ");
+        let input = safe(&input.replace("\r\n", "\n")).replace('\t', "    ");
         let mut doc = Self::default();
+        let input = input.trim_start_matches('\u{feff}');
+        let input = if let Some((language, metadata, body)) = frontmatter(input) {
+            doc.blocks.push(Block {
+                kind: Kind::Frontmatter(language.into()),
+                text: metadata.trim_end_matches(['\r', '\n']).into(),
+                anchor: "frontmatter".into(),
+                links: Vec::new(),
+            });
+            body
+        } else {
+            input
+        };
         let mut text = String::new();
         let mut links = Vec::new();
         let mut kind = Kind::Paragraph;
@@ -37,12 +67,12 @@ impl Document {
         let mut quote = 0;
         let mut code = false;
         let mut table = false;
-        let mut rows: Vec<Vec<String>> = Vec::new();
+        let mut rows: Vec<Vec<(String, Vec<Link>)>> = Vec::new();
         let mut row = Vec::new();
         let mut link_start: Option<(usize, String)> = None;
         let flush = |doc: &mut Document,
                      text: &mut String,
-                     links: &mut Vec<(String, String)>,
+                     links: &mut Vec<Link>,
                      kind: &Kind,
                      section: &str,
                      counts: &mut std::collections::HashMap<String, usize>| {
@@ -66,7 +96,7 @@ impl Document {
         };
         let options =
             Options::ENABLE_TABLES | Options::ENABLE_TASKLISTS | Options::ENABLE_STRIKETHROUGH;
-        for event in Parser::new_ext(&input, options) {
+        for event in Parser::new_ext(input, options) {
             match event {
                 Event::Start(Tag::CodeBlock(info)) => {
                     flush(
@@ -211,7 +241,11 @@ impl Document {
                 }
                 Event::End(TagEnd::Link) => {
                     if let Some((start, dest)) = link_start.take() {
-                        links.push((text[start..].to_owned(), dest));
+                        links.push(Link {
+                            label: text[start..].to_owned(),
+                            target: dest,
+                            range: start..text.len(),
+                        });
                     }
                 }
                 Event::Start(Tag::Image { dest_url, .. }) => {
@@ -253,7 +287,7 @@ impl Document {
                     text.clear();
                 }
                 Event::End(TagEnd::TableCell) => {
-                    row.push(std::mem::take(&mut text));
+                    row.push((std::mem::take(&mut text), std::mem::take(&mut links)));
                 }
                 Event::End(TagEnd::TableRow | TagEnd::TableHead) => {
                     rows.push(std::mem::take(&mut row));
@@ -264,7 +298,7 @@ impl Document {
                         .map(|i| {
                             rows.iter()
                                 .filter_map(|r| r.get(i))
-                                .map(|s| s.width())
+                                .map(|(s, _)| s.width())
                                 .max()
                                 .unwrap_or(0)
                         })
@@ -279,16 +313,27 @@ impl Document {
                             "[Table too large to align; complete cell contents follow]\n",
                         );
                         for r in &rows {
-                            text.push_str(&r.join(" | "));
+                            for (i, (cell, cell_links)) in r.iter().enumerate() {
+                                if i > 0 {
+                                    text.push_str(" | ");
+                                }
+                                append_cell(&mut text, &mut links, cell, cell_links);
+                            }
                             text.push('\n');
                         }
                     } else {
                         for (n, r) in rows.iter().enumerate() {
                             text.push('│');
                             for (i, w) in widths.iter().enumerate() {
-                                let cell = r.get(i).map(String::as_str).unwrap_or("");
+                                text.push(' ');
+                                let cell = if let Some((cell, cell_links)) = r.get(i) {
+                                    append_cell(&mut text, &mut links, cell, cell_links);
+                                    cell.as_str()
+                                } else {
+                                    ""
+                                };
                                 text.push_str(&format!(
-                                    " {cell}{} │",
+                                    "{} │",
                                     " ".repeat(w.saturating_sub(cell.width()))
                                 ));
                             }
@@ -339,6 +384,41 @@ impl Document {
             .map(|(i, b)| (i, b.anchor.clone(), b.text.clone()))
             .collect()
     }
+}
+fn append_cell(text: &mut String, links: &mut Vec<Link>, cell: &str, cell_links: &[Link]) {
+    let offset = text.len();
+    links.extend(cell_links.iter().cloned().map(|mut link| {
+        link.range = link.range.start + offset..link.range.end + offset;
+        link
+    }));
+    text.push_str(cell);
+}
+
+/// Recognize only a closed metadata block at the beginning of the document.
+/// Values stay literal, including multiline YAML, comments and unknown fields.
+fn frontmatter(input: &str) -> Option<(&'static str, &str, &str)> {
+    let mut lines = input.split_inclusive('\n');
+    let first = lines.next()?;
+    let marker = first.trim_end();
+    let language = match marker {
+        "---" => "yaml",
+        "+++" => "toml",
+        _ => return None,
+    };
+    let start = first.len();
+    let mut offset = start;
+    for line in lines {
+        let end = line.trim_end();
+        if end == marker || (marker == "---" && end == "...") {
+            return Some((
+                language,
+                &input[start..offset],
+                &input[offset + line.len()..],
+            ));
+        }
+        offset += line.len();
+    }
+    None
 }
 pub fn slug(text: &str) -> String {
     text.to_lowercase()

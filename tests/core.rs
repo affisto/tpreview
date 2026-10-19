@@ -481,3 +481,186 @@ fn truncated_terminal_reply_cannot_swallow_ctrl_c() {
         matches!(decoder.next_event(),Some(InputEvent::Key(k)) if k.code==KeyCode::Char('c') && k.modifiers.contains(KeyModifiers::CONTROL))
     );
 }
+
+#[test]
+fn frontmatter_is_literal_and_does_not_change_headings_or_links() {
+    for (metadata, language) in [
+        (
+            "---\ntitle: 한글\nsummary: |\n  # not a heading\n  [not a link](evil.md)\n---\n",
+            "yaml",
+        ),
+        ("\u{feff}---\r\ntitle: 한글\r\n...\r\n", "yaml"),
+        ("+++\ntitle = \"한글\"\n+++\n", "toml"),
+    ] {
+        let doc = Document::parse(&format!("{metadata}\n# Body\n\n[next](next.md)"));
+        assert_eq!(doc.blocks[0].kind, Kind::Frontmatter(language.into()));
+        assert!(doc.blocks[0].text.contains("한글"));
+        assert!(doc.blocks[0].links.is_empty());
+        assert_eq!(doc.blocks[1].anchor, "body");
+        assert_eq!(doc.blocks[2].links[0].target, "next.md");
+        assert!(!doc.blocks[0].text.contains('�'));
+        let layout = Layout::build(&doc, &HashMap::new(), 80, false, (8, 16));
+        assert!(layout.rows[0].text().contains("Frontmatter"));
+    }
+    assert!(!matches!(
+        Document::parse("# Body\n\n---\n").blocks[0].kind,
+        Kind::Frontmatter(_)
+    ));
+    assert!(!matches!(
+        Document::parse("---\ntitle: unclosed").blocks[0].kind,
+        Kind::Frontmatter(_)
+    ));
+}
+
+#[test]
+fn mouse_decoder_handles_fragmentation_clicks_wheels_and_releases() {
+    use crossterm::event::{MouseButton, MouseEventKind};
+    let mut decoder = Decoder::default();
+    decoder.feed(b"\x1b[<0;12;");
+    assert!(decoder.next_event().is_none());
+    decoder.feed(b"5M\x1b[<0;12;5m\x1b[<65;12;5Mj");
+    assert!(
+        matches!(decoder.next_event(), Some(InputEvent::Mouse(m)) if m.column == 11 && m.row == 4 && m.kind == MouseEventKind::Down(MouseButton::Left))
+    );
+    assert!(
+        matches!(decoder.next_event(), Some(InputEvent::Mouse(m)) if m.kind == MouseEventKind::Up(MouseButton::Left))
+    );
+    assert!(
+        matches!(decoder.next_event(), Some(InputEvent::Mouse(m)) if m.kind == MouseEventKind::ScrollDown)
+    );
+    assert!(
+        matches!(decoder.next_event(), Some(InputEvent::Key(k)) if k.code == KeyCode::Char('j'))
+    );
+}
+
+#[test]
+fn link_hit_ranges_follow_wrapping_unicode_tables_and_repeated_labels() {
+    let doc = Document::parse(
+        "# 제목 [같은](one.md) 같은 [같은](two.md)\n\n> [긴 한글 링크](long.md)\n\n| A | B |\n|---|---|\n| [같은](three.md) | [같은](four.md) |\n",
+    );
+    for width in [8, 80] {
+        let layout = Layout::build(&doc, &HashMap::new(), width, false, (8, 16));
+        let mut targets = std::collections::HashSet::new();
+        for row in &layout.rows {
+            for (range, index) in &row.links {
+                assert!(range.start < range.end && range.end <= row.text().width());
+                targets.insert(doc.blocks[row.block].links[*index].target.as_str());
+            }
+        }
+        assert_eq!(targets.len(), 5);
+    }
+}
+
+fn navigation_app() -> (tempfile::TempDir, App) {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().canonicalize().unwrap();
+    std::fs::write(root.join("a.md"), "# First\n\n[next](b.md#target)\n").unwrap();
+    std::fs::write(root.join("b.md"), "# Second\n\n## Target\n\nText\n").unwrap();
+    let app = App::new(
+        Some(root.join("a.md")),
+        root,
+        "# First\n\n[next](b.md#target)\n".into(),
+        true,
+        false,
+        cap(),
+        None,
+    );
+    (temp, app)
+}
+fn key(app: &mut App, code: KeyCode) {
+    app.key(KeyEvent::new(code, KeyModifiers::NONE));
+}
+
+#[test]
+fn files_can_be_reselected_with_vim_keys_and_narrow_panels_reveal_the_document() {
+    use ratatui::{Terminal, backend::TestBackend};
+    let (_temp, mut app) = navigation_app();
+    key(&mut app, KeyCode::Char('j'));
+    key(&mut app, KeyCode::Enter);
+    assert!(app.path.as_ref().unwrap().ends_with("b.md"));
+    assert!(!app.panel_focus);
+    let mut terminal = Terminal::new(TestBackend::new(40, 20)).unwrap();
+    terminal
+        .draw(|f| {
+            tpreview::ui::draw(f, &app);
+        })
+        .unwrap();
+    let screen: String = terminal
+        .backend()
+        .buffer()
+        .content
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect();
+    assert!(screen.contains("Second"));
+    assert!(!screen.contains("FILES"));
+    key(&mut app, KeyCode::Char('f'));
+    assert!(app.panel_focus);
+    assert_eq!(app.panel_index, 1);
+    key(&mut app, KeyCode::Char('k'));
+    key(&mut app, KeyCode::Char('l'));
+    assert!(app.path.as_ref().unwrap().ends_with("a.md"));
+    key(&mut app, KeyCode::Char('b'));
+    assert!(app.path.as_ref().unwrap().ends_with("b.md"));
+}
+
+#[test]
+fn mouse_opens_files_and_the_exact_link_in_a_paragraph() {
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::layout::Rect;
+    let (_temp, mut app) = navigation_app();
+    let click = |x, y| MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: x,
+        row: y,
+        modifiers: KeyModifiers::NONE,
+    };
+    tpreview::ui::mouse(&mut app, Rect::new(0, 0, 100, 30), click(5, 4));
+    assert!(app.path.as_ref().unwrap().ends_with("b.md"));
+    tpreview::ui::mouse(&mut app, Rect::new(0, 0, 100, 30), click(5, 3));
+    assert!(app.path.as_ref().unwrap().ends_with("a.md"));
+    app.panel = None;
+    app.replace("[같은](missing.md) 같은 [같은](b.md#target)".into(), false);
+    app.resize(96, 26);
+    let range = app.layout.rows[0].links[1].0.clone();
+    tpreview::ui::mouse(
+        &mut app,
+        Rect::new(0, 0, 100, 30),
+        click(2 + range.start as u16, 2),
+    );
+    assert!(app.path.as_ref().unwrap().ends_with("b.md"));
+    assert_eq!(
+        app.doc.blocks[app.layout.rows[app.scroll].block].anchor,
+        "target"
+    );
+}
+
+#[test]
+fn absolute_paths_text_documents_missing_links_and_stdin_anchors() {
+    let (_temp, mut app) = navigation_app();
+    let absolute = app.root.join("b.md");
+    app.open_target(&format!("{}#target", absolute.display()));
+    assert_eq!(app.path.as_ref(), Some(&absolute));
+    assert_eq!(
+        app.doc.blocks[app.layout.rows[app.scroll].block].anchor,
+        "target"
+    );
+    let path = app.root.join("notes.txt");
+    std::fs::write(&path, "# literal text\n[not an action](x.md)").unwrap();
+    app.open_target("notes.txt");
+    assert!(matches!(app.doc.blocks[0].kind, Kind::Code(_)));
+    assert!(app.actions.is_empty());
+    let before = app.path.clone();
+    app.open_target("missing.md");
+    assert_eq!(app.path, before);
+    assert!(!app.message.is_empty());
+    app.path = None;
+    app.replace("# First\n\n## 한글 제목\n".into(), false);
+    app.open_target("#%ED%95%9C%EA%B8%80-%EC%A0%9C%EB%AA%A9");
+    assert_eq!(
+        app.doc.blocks[app.layout.rows[app.scroll].block].anchor,
+        "한글-제목"
+    );
+    key(&mut app, KeyCode::Char('b'));
+    assert_eq!(app.scroll, 0);
+}

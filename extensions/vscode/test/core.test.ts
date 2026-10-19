@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reconcileMarkdown, sameMeaning, unsupportedReason } from '../src/webview/markdown';
+import { reconcileMarkdown, sameMeaning, unsupportedReason, splitFrontmatter } from '../src/webview/markdown';
+import { linkTarget, headingSlug } from '../src/links';
 import { textChange, isClientMessage, type Edit } from '../src/protocol';
 import { DocumentSync } from '../src/webview/sync';
 
@@ -30,9 +31,34 @@ test('insertions, deletion, task lists, tables and repeated blocks preserve mean
   ]) assert.ok(sameMeaning(reconcileMarkdown(before, before, after), after));
 });
 test('lossy and unsupported input is never silently rewritten', () => {
-  for (const raw of ['---\ntitle: Hello\n---\n', '<div>HTML</div>', '[x][id]\n\n[id]: https://example.com', '```js title=demo\ncode\n```', 'A[^1]\n\n[^1]: Footnote']) assert.ok(unsupportedReason(raw));
+  for (const raw of ['---\ntitle: Unclosed\n', '<div>HTML</div>', '[x][id]\n\n[id]: https://example.com', '```js title=demo\ncode\n```', 'A[^1]\n\n[^1]: Footnote']) assert.ok(unsupportedReason(raw));
   assert.equal(unsupportedReason('# Title\n\n- [ ] Task\n\n```mermaid\nflowchart LR\nA-->B\n```'), undefined);
   assert.throws(() => reconcileMarkdown('<span>important</span>', 'important', 'changed'));
+});
+test('frontmatter remains byte exact through body edits, including BOM, CRLF and empty bodies', () => {
+  for (const prefix of ['---\ntitle: "한글"\n# comment\nsummary: |\n  one\n  two\n---\n', '\uFEFF---\r\ntitle: Keep\r\n...\r\n', '+++\ntitle = "Keep"\n+++\n']) {
+    const body = prefix.includes('\r\n') ? '\r\n# Hello #\r\n\r\nBody\r\n' : '\n# Hello #\n\nBody\n';
+    const raw = prefix + body;
+    const baseline = '# Hello\n\nBody\n';
+    assert.equal(unsupportedReason(raw), undefined);
+    assert.equal(splitFrontmatter(raw).prefix, prefix);
+    assert.equal(reconcileMarkdown(raw, baseline, baseline), raw);
+    assert.equal(reconcileMarkdown(raw, baseline, baseline.replace('Body', 'Edited')), raw.replace('Body', 'Edited'));
+    assert.equal(reconcileMarkdown(prefix, '', '# New\n'), prefix + '# New');
+  }
+  assert.equal(reconcileMarkdown('---\ntitle: Keep\n---', '', '# New\n'), '---\ntitle: Keep\n---\n# New');
+  assert.equal(splitFrontmatter('# Body\n\n---\n').format, undefined);
+  assert.equal(unsupportedReason('---\ntitle: Keep\n---\n<div>HTML</div>'), 'html syntax is preserved in the source editor.');
+});
+test('link destinations distinguish browser URLs, absolute paths, encoded filenames and anchors', () => {
+  assert.deepEqual(linkTarget('https://example.com/a?q=b#c'), { kind: 'web', url: 'https://example.com/a?q=b#c' });
+  assert.deepEqual(linkTarget('//example.com/a'), { kind: 'web', url: 'https://example.com/a' });
+  for (const [href, path] of [['../다음%20문서.md#제목', '../다음 문서.md'], ['/tmp/next.md#제목', '/tmp/next.md'], ['C:\\Docs\\next.md#제목', 'C:\\Docs\\next.md'], ['file:///tmp/next.md#제목', '/tmp/next.md']]) {
+    assert.deepEqual(linkTarget(href), { kind: 'document', path, fragment: '제목' });
+  }
+  assert.deepEqual(linkTarget('#%ED%95%9C%EA%B8%80'), { kind: 'document', path: '', fragment: '한글' });
+  assert.equal(headingSlug('한글 제목! Hello'), '한글-제목-hello');
+  for (const href of ['javascript:alert(1)', 'command:workbench.action.closeWindow', 'data:text/html,x', 'vscode://extension', '%zz.md', 'a%00.md', 'file://remote/share.md']) assert.throws(() => linkTarget(href));
 });
 test('UTF-16 text edits reconstruct Unicode and CRLF safely', () => {
   for (const [a, b] of [['hello 😀 world', 'hello 😎 world'], ['a\r\nb', 'a\nb'], ['a\nb', 'a\r\nb'], ['', 'new'], ['old', ''], ['한글', '한국어']]) {

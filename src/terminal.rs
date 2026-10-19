@@ -2,7 +2,10 @@
 use crate::{cli::RenderMode, source::safe};
 use crossterm::{
     cursor,
-    event::{KeyCode, KeyEvent, KeyModifiers},
+    event::{
+        DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEvent, KeyModifiers, MouseButton,
+        MouseEvent, MouseEventKind,
+    },
     execute,
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -17,6 +20,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub enum InputEvent {
     Key(KeyEvent),
+    Mouse(MouseEvent),
     Reply(String),
 }
 #[derive(Default)]
@@ -109,6 +113,11 @@ impl Decoder {
                             return None;
                         };
                         let seq = &self.buffer[2..=end];
+                        if let Some(mouse) = decode_mouse(seq) {
+                            self.buffer.drain(..end + 1);
+                            self.escape_at = None;
+                            return Some(InputEvent::Mouse(mouse));
+                        }
                         let code = match seq {
                             b"A" => Some(KeyCode::Up),
                             b"B" => Some(KeyCode::Down),
@@ -169,6 +178,57 @@ impl Decoder {
             return Some(InputEvent::Key(KeyEvent::new(code, modifiers)));
         }
     }
+}
+fn decode_mouse(seq: &[u8]) -> Option<MouseEvent> {
+    let seq = std::str::from_utf8(seq).ok()?;
+    let release = seq.ends_with('m');
+    let body = seq
+        .strip_prefix('<')?
+        .strip_suffix(if release { 'm' } else { 'M' })?;
+    let mut parts = body.split(';');
+    let button = parts.next()?.parse::<u16>().ok()?;
+    let column = parts.next()?.parse::<u16>().ok()?.checked_sub(1)?;
+    let row = parts.next()?.parse::<u16>().ok()?.checked_sub(1)?;
+    if parts.next().is_some() {
+        return None;
+    }
+    let mut modifiers = KeyModifiers::NONE;
+    if button & 4 != 0 {
+        modifiers |= KeyModifiers::SHIFT;
+    }
+    if button & 8 != 0 {
+        modifiers |= KeyModifiers::ALT;
+    }
+    if button & 16 != 0 {
+        modifiers |= KeyModifiers::CONTROL;
+    }
+    let kind = if button & 64 != 0 {
+        match button & 3 {
+            0 => MouseEventKind::ScrollUp,
+            1 => MouseEventKind::ScrollDown,
+            _ => return None,
+        }
+    } else if button & 32 != 0 {
+        MouseEventKind::Moved
+    } else {
+        let button = match button & 3 {
+            0 => MouseButton::Left,
+            1 => MouseButton::Middle,
+            2 => MouseButton::Right,
+            _ => return None,
+        };
+        if release {
+            MouseEventKind::Up(button)
+        } else {
+            MouseEventKind::Down(button)
+        }
+    };
+    Some(MouseEvent {
+        kind,
+        column,
+        row,
+        modifiers,
+    })
 }
 pub struct Input {
     file: File,
@@ -345,7 +405,12 @@ impl Guard {
         terminal::enable_raw_mode()?;
         guard.alternate = alternate;
         if alternate {
-            execute!(io::stdout(), EnterAlternateScreen, cursor::Hide)?;
+            execute!(
+                io::stdout(),
+                EnterAlternateScreen,
+                EnableMouseCapture,
+                cursor::Hide
+            )?;
         }
         Ok(guard)
     }
@@ -354,7 +419,12 @@ impl Drop for Guard {
     fn drop(&mut self) {
         let _ = terminal::disable_raw_mode();
         if self.alternate {
-            let _ = execute!(io::stdout(), cursor::Show, LeaveAlternateScreen);
+            let _ = execute!(
+                io::stdout(),
+                DisableMouseCapture,
+                cursor::Show,
+                LeaveAlternateScreen
+            );
         }
         for id in self.signals.drain(..) {
             signal_hook::low_level::unregister(id);

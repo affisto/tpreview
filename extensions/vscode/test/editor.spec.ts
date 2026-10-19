@@ -18,7 +18,7 @@ test('opens without writes, edits text and tasks, saves, and switches to source'
   await expect.poll(() => page.evaluate(() => window.__host.messages.at(-1)?.type)).toBe('source');
 });
 test('renders Mermaid offline and retains its last valid result during invalid edits', async ({ page }) => {
-  const external: string[] = []; page.on('request', req => { if (!req.url().startsWith('http://127.0.0.1:4178')) external.push(req.url()); });
+  const external: string[] = []; page.on('request', req => { if (!req.url().startsWith(`http://127.0.0.1:${process.env.TPREVIEW_TEST_PORT ?? 4178}`)) external.push(req.url()); });
   await open(page);
   await expect(page.locator('.diagram-preview svg')).toBeVisible();
   await page.getByRole('button', { name: 'Edit diagram' }).click();
@@ -99,4 +99,48 @@ test('toolbar creates formatting, tables and diagrams', async ({ page }) => {
 for (const width of [320, 375, 414, 768]) test(`editor fits a ${width}px pane`, async ({ page }) => {
   await page.setViewportSize({ width, height: 850 }); await open(page);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
+
+test('frontmatter is readable and stays byte exact while the body is edited and saved', async ({ page }) => {
+  await open(page);
+  const prefix = '\uFEFF---\r\ntitle: "한글 문서"\r\nsummary: |\r\n  First line\r\n  Second line\r\ntags: [one, two]\r\n---\r\n';
+  await page.evaluate(text => window.externalChange(text), prefix + '\r\n# Body\r\n\r\nRead me.\r\n');
+  await expect(page.locator('#metadata')).toContainText('한글 문서');
+  await expect(page.locator('.ProseMirror h1')).toHaveText('Body');
+  await expect(page.locator('#fallback')).toBeHidden();
+  expect(await page.evaluate(() => window.__host.edits.length)).toBe(0);
+  await page.locator('.ProseMirror p').click(); await page.keyboard.press('End'); await page.keyboard.insertText(' Edited.');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__host.saved)).toContain('Edited.');
+  expect((await page.evaluate(() => window.__host.saved)).startsWith(prefix)).toBe(true);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.locator('.ProseMirror p')).toHaveText('Read me.');
+  await expect(page.locator('#metadata')).toContainText('Second line');
+});
+
+test('single-click and modifier-click send links, Alt-click keeps editing, anchors select headings', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => window.externalChange('# 한글 제목\n\n[Web](https://example.org) [Relative](../next%20doc.md#heading) [Absolute](/tmp/next.md) [Jump](#한글-제목-1)\n\n## 한글 제목\n'));
+  const messages = () => page.evaluate(() => window.__host.messages.filter(m => m.type === 'link'));
+  await page.getByRole('link', { name: 'Web', exact: true }).click();
+  await expect.poll(messages).toEqual([{ type: 'link', href: 'https://example.org' }]);
+  await page.getByRole('link', { name: 'Relative', exact: true }).click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
+  await page.getByRole('link', { name: 'Absolute', exact: true }).click();
+  await expect.poll(messages).toHaveLength(3);
+  await page.getByRole('link', { name: 'Web', exact: true }).click({ modifiers: ['Alt'] });
+  expect(await messages()).toHaveLength(3);
+  await page.getByRole('link', { name: 'Jump', exact: true }).click();
+  await expect(page.locator('.ProseMirror h2')).toBeFocused();
+  expect(await page.evaluate(() => window.__host.edits.length)).toBe(0);
+});
+
+test('navigation waits until pending edits reach the host', async ({ page }) => {
+  await open(page);
+  await page.evaluate(() => { window.externalChange('# Draft\n\n[Next](next.md)\n'); window.__host.delay = 300; });
+  await expect(page.locator('.ProseMirror h1')).toHaveText('Draft');
+  await page.locator('.ProseMirror h1').click(); await page.keyboard.press('End'); await page.keyboard.insertText(' changed');
+  await page.getByRole('link', { name: 'Next', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__host.messages.at(-1)?.type)).toBe('link');
+  expect(await page.evaluate(() => window.__host.text)).toContain('Draft changed');
+  await expect(page.locator('#conflict')).toBeHidden();
 });

@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { randomBytes } from 'node:crypto';
+import { posix } from 'node:path';
+import { linkTarget } from './links';
 import { editorHtml } from './html';
 import { isClientMessage, textChange, type HostMessage, type Snapshot } from './protocol';
 
@@ -20,8 +22,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 class MarkdownEditor implements vscode.CustomTextEditorProvider {
   private queues = new Map<string, Promise<void>>();
+  private previews = new Map<string, Set<{ panel: vscode.WebviewPanel; ready: boolean }>>();
+  private anchors = new Map<string, string>();
   constructor(private extensionUri: vscode.Uri) {}
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel) {
+    const key = document.uri.toString();
+    const preview = { panel, ready: false };
+    const previews = this.previews.get(key) ?? new Set();
+    previews.add(preview); this.previews.set(key, previews);
     const webview = panel.webview;
     const parent = vscode.Uri.joinPath(document.uri, '..');
     webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'dist'), parent] };
@@ -35,8 +43,7 @@ class MarkdownEditor implements vscode.CustomTextEditorProvider {
     });
     const messages = webview.onDidReceiveMessage((message: unknown) => {
       if (!isClientMessage(message)) return;
-      if (message.type === 'ready') { update(); return; }
-      const key = document.uri.toString();
+      if (message.type === 'ready') { preview.ready = true; update(); this.revealAnchor(key); return; }
       const previous = this.queues.get(key) ?? Promise.resolve();
       const next = previous.then(async () => {
         if (message.type === 'edit') {
@@ -66,15 +73,41 @@ class MarkdownEditor implements vscode.CustomTextEditorProvider {
       this.queues.set(key, next);
       void next.finally(() => { if (this.queues.get(key) === next) this.queues.delete(key); });
     });
-    panel.onDidDispose(() => { changes.dispose(); messages.dispose(); });
+    const visibility = panel.onDidChangeViewState(() => this.revealAnchor(key));
+    panel.onDidDispose(() => { changes.dispose(); messages.dispose(); visibility.dispose(); previews.delete(preview); if (!previews.size) this.previews.delete(key); });
     webview.html = editorHtml(asset('main.js'), asset('main.css'), webview.cspSource, randomBytes(18).toString('hex'));
   }
   private async openLink(document: vscode.Uri, href: string) {
-    if (/^https?:\/\//i.test(href)) { await vscode.env.openExternal(vscode.Uri.parse(href)); return; }
-    if (!href || /^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('//') || href.startsWith('#')) return;
-    const [path] = href.split('#');
-    if (!/\.(md|markdown)$/i.test(path)) return;
-    const uri = vscode.Uri.joinPath(document, '..', decodeURIComponent(path));
-    await vscode.commands.executeCommand('vscode.openWith', uri, viewType);
+    const target = linkTarget(href);
+    if (target.kind === 'web') {
+      if (!await vscode.env.openExternal(vscode.Uri.parse(target.url))) throw new Error('Unable to open the link in your browser.');
+      return;
+    }
+    let path = target.path.replace(/\\/g, '/');
+    if (/^[a-z]:\//i.test(path)) path = '/' + path;
+    const uri = document.with({ path: path ? posix.resolve(posix.dirname(document.path), path) : document.path, query: '', fragment: '' });
+    const key = uri.toString();
+    if (key === document.toString() && target.fragment !== undefined) {
+      this.anchors.set(key, target.fragment); this.revealAnchor(key); return;
+    }
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (stat.type & vscode.FileType.Directory) throw new Error('The link points to a directory. Choose a document file.');
+    if (/\.(md|markdown)$/i.test(uri.path)) {
+      if (target.fragment !== undefined) this.anchors.set(key, target.fragment);
+      try {
+        await vscode.commands.executeCommand('vscode.openWith', uri, viewType);
+        this.revealAnchor(key);
+      } catch (error) { this.anchors.delete(key); throw error; }
+    } else {
+      await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri));
+    }
+  }
+  private revealAnchor(key: string) {
+    const fragment = this.anchors.get(key);
+    if (fragment === undefined) return;
+    const previews = [...(this.previews.get(key) ?? [])].filter(p => p.ready && p.panel.visible);
+    if (!previews.length) return;
+    this.anchors.delete(key);
+    for (const { panel } of previews) void panel.webview.postMessage({ type: 'anchor', fragment } satisfies HostMessage);
   }
 }

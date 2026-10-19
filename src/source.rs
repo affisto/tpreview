@@ -4,6 +4,7 @@ use std::{
     io::Read,
     os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
+    process::{Command, Stdio},
 };
 use walkdir::WalkDir;
 
@@ -76,10 +77,18 @@ pub fn resolve_link(current: Option<&Path>, dest: &str) -> Result<(PathBuf, Opti
     let (file, anchor) = dest
         .split_once('#')
         .map_or((dest, None), |(a, b)| (a, Some(b.to_owned())));
-    if file.contains(':') || file.starts_with("//") {
-        bail!("only local Markdown links are opened");
+    let file = file
+        .strip_prefix("file://localhost/")
+        .map(|p| format!("/{p}"))
+        .or_else(|| file.strip_prefix("file:///").map(|p| format!("/{p}")))
+        .unwrap_or_else(|| file.to_owned());
+    if (file.contains(':') && !file.starts_with('/')) || file.starts_with("//") {
+        bail!("use an HTTP/HTTPS URL or a local document path");
     }
-    let file = percent_decode(file)?;
+    let file = percent_decode(&file)?;
+    if file.chars().any(char::is_control) {
+        bail!("invalid control character in path");
+    }
     let path = if file.is_empty() {
         current
             .context("stdin has no file for this link")?
@@ -90,15 +99,56 @@ pub fn resolve_link(current: Option<&Path>, dest: &str) -> Result<(PathBuf, Opti
             .unwrap_or(Path::new("."))
             .join(file)
     };
-    if !is_markdown(&path) {
-        bail!("link target must be .md or .markdown");
-    }
     Ok((
         path.canonicalize()?,
         anchor.map(|s| percent_decode(&s)).transpose()?,
     ))
 }
-fn percent_decode(s: &str) -> Result<String> {
+pub fn is_web_link(dest: &str) -> bool {
+    dest.get(..7)
+        .is_some_and(|s| s.eq_ignore_ascii_case("http://"))
+        || dest
+            .get(..8)
+            .is_some_and(|s| s.eq_ignore_ascii_case("https://"))
+}
+pub fn open_browser(dest: &str) -> Result<std::sync::mpsc::Receiver<Result<(), String>>> {
+    if !is_web_link(dest)
+        || dest.chars().any(|c| c.is_control() || c.is_whitespace())
+        || dest
+            .split_once("://")
+            .is_none_or(|(_, rest)| rest.is_empty() || rest.starts_with(['/', '#', '?']))
+    {
+        bail!("invalid HTTP/HTTPS URL");
+    }
+    let program = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    // Pass a single argument, never a shell command or document-provided executable.
+    let mut child = Command::new(program)
+        .arg(dest)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .with_context(|| {
+            format!("cannot start {program}; open this URL in your browser: {dest}")
+        })?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let result = child.wait().map_err(|e| e.to_string()).and_then(|status| {
+            if status.success() {
+                Ok(())
+            } else {
+                Err(format!("{program} could not open the browser ({status})"))
+            }
+        });
+        let _ = tx.send(result);
+    });
+    Ok(rx)
+}
+pub fn percent_decode(s: &str) -> Result<String> {
     let mut bytes = Vec::new();
     let mut i = 0;
     while i < s.len() {

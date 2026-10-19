@@ -1,8 +1,20 @@
 # Verification and compatibility
 
-Date: 2026-10-12. Local host: macOS 15 / Darwin 24.6, Apple Silicon (arm64), Rust 1.92.0, tmux 3.6. This document distinguishes executable tests from protocol simulation and real-terminal visual checks.
+Updated: 2026-10-20. Local host: macOS / Apple Silicon (arm64), Rust 1.92.0. This document distinguishes executable tests from protocol simulation and real-terminal visual checks.
 
-## Local results
+## Navigation and frontmatter release (2026-10-20)
+
+CLI 0.1.2 and MD Visual Editor 0.1.3 were verified locally with:
+
+- Rust formatting, Clippy, all **30 core tests**, and an optimized release build. New checks cover repeated file selection with Vim keys, narrow panels, mouse decoding/hit ranges, Unicode/wrapped/table links, absolute paths, plain-text documents, stdin anchors, and YAML/TOML frontmatter.
+- Real PTY and isolated tmux integration. PTY checks include file selection, mouse capture restoration, frontmatter, and browser-launch arguments through a fixture OS launcher; they do not launch a live external browser.
+- TypeScript checking, **11 unit tests** and **17 Playwright UI tests**, including byte-preserved metadata with BOM/CRLF, body edits/undo, link clicks and waiting for pending edits before navigation.
+- An isolated real VS Code host: metadata survives save, a relative encoded path opens another document, its heading below 70 paragraphs scrolls into view, and an absolute link returns to the original visual editor. Existing Mermaid, save/undo/redo, external changes and source switching checks also pass. The generated screenshot is `dist/vscode-editor-preview.png`.
+- All **9 installer integration tests**, covering both downloaders and four target platforms with fixtures.
+
+Tagged release workflows repeat the required checks before publishing. The historical graphics/SSH limitations below still apply.
+
+## Initial release results (2026-10-12)
 
 | Check | Evidence / result |
 | --- | --- |

@@ -6,7 +6,10 @@ use crate::{
     terminal::{Guard, Input, InputEvent},
 };
 use anyhow::Result;
-use crossterm::terminal;
+use crossterm::{
+    event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind},
+    terminal,
+};
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
@@ -23,7 +26,7 @@ use std::{
 
 const BG: Color = Color::Rgb(17, 24, 32);
 const BAR: Color = Color::Rgb(28, 38, 49);
-pub const HELP: &str = "tpreview · keyboard guide\n\nj / k  ↑ / ↓       Scroll (or move in focused panel)\nPageUp / PageDown   Page up / down; Space: page down\ng / G              First / last page\nh / l  ← / →       Pan tables, code and text diagrams\n/                  Search; Enter: jump; Esc: close input\nn / N              Next / previous search match\nTab / Shift+Tab    Select next / previous link or diagram\nEnter              Open selected item\nb / Backspace      Previous document\nf                  Toggle files (j/k, Enter to open)\nt                  Toggle contents (j/k, Enter to jump)\nEsc                Close panel / selection / search marks\nr                  Reload current file\n?                  This guide; Esc or ?: close\nq / Ctrl+C         Quit (q closes a detail/guide first)\n\nDiagram detail: + / - zoom image; 0 reset\nh/j/k/l or arrows: pan; PageUp/Down: vertical pan\nEsc or q: return to document\n\nRemote links and document commands are never executed.";
+pub const HELP: &str = "tpreview · keyboard guide\n\nj / k  ↑ / ↓       Scroll (or move in focused panel)\nPageUp / PageDown   Page up / down; Space: page down\ng / G              First / last page\nh / l  ← / →       Pan tables, code and text diagrams\n/                  Search; Enter: jump; Esc: close input\nn / N              Next / previous search match\nTab / Shift+Tab    Select next / previous link or diagram\nEnter              Open selected item\nb / Backspace      Previous document\nf                  Focus/toggle files (j/k, Enter or l to open)\nt                  Toggle contents (j/k, Enter to jump)\nEsc                Close panel / selection / search marks\nr                  Reload current file\n?                  This guide; Esc or ?: close\nq / Ctrl+C         Quit (q closes a detail/guide first)\n\nDiagram detail: + / - zoom image; 0 reset\nh/j/k/l or arrows: pan; PageUp/Down: vertical pan\nEsc or q: return to document\n\nClick links or use Tab, Enter to open.\nHTTP/HTTPS: browser; local paths: document.\nClick a file to open it; Shift+drag selects terminal text.";
 
 pub fn run(mut app: App, mut input: Input, _guard: Guard) -> Result<()> {
     let stop = _guard.stop.clone();
@@ -53,8 +56,10 @@ pub fn run(mut app: App, mut input: Input, _guard: Guard) -> Result<()> {
                 app.key(key);
                 continue;
             }
-            if let Some(InputEvent::Key(key)) = input.poll(Duration::from_millis(35))? {
-                app.key(key);
+            match input.poll(Duration::from_millis(35))? {
+                Some(InputEvent::Key(key)) => app.key(key),
+                Some(InputEvent::Mouse(event)) => mouse(&mut app, area, event),
+                _ => {}
             }
         }
         Ok(())
@@ -75,7 +80,11 @@ fn areas(area: Rect, app: &App) -> (Option<Rect>, Rect, Rect) {
         area.width,
         area.height.saturating_sub(4),
     );
-    let panel = if app.panel.is_some() && !app.help && app.detail.is_none() {
+    let panel = if app.panel.is_some()
+        && !app.help
+        && app.detail.is_none()
+        && (area.width >= 60 || app.panel_focus)
+    {
         Some(Rect::new(
             0,
             content.y,
@@ -108,6 +117,74 @@ fn areas(area: Rect, app: &App) -> (Option<Rect>, Rect, Rect) {
         content.height,
     );
     (panel, body, status)
+}
+pub fn mouse(app: &mut App, area: Rect, event: MouseEvent) {
+    let (panel, body, _) = areas(area, app);
+    let point = ratatui::layout::Position::new(event.column, event.row);
+    if matches!(
+        event.kind,
+        MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+    ) {
+        if !app.help && app.detail.is_none() {
+            app.panel_focus = panel.is_some_and(|rect| rect.contains(point));
+        }
+        let key = if event.kind == MouseEventKind::ScrollUp {
+            KeyCode::Up
+        } else {
+            KeyCode::Down
+        };
+        for _ in 0..3 {
+            app.key(KeyEvent::new(key, KeyModifiers::NONE));
+        }
+        return;
+    }
+    if event.kind != MouseEventKind::Down(MouseButton::Left)
+        || app.help
+        || app.detail.is_some()
+        || app.searching
+    {
+        return;
+    }
+    if let Some(rect) = panel.filter(|rect| rect.contains(point)) {
+        app.panel_focus = true;
+        app.dirty = true;
+        let page = rect.height.saturating_sub(2).max(1) as usize;
+        let start = app.panel_index.saturating_sub(page - 1);
+        let row = event.row.saturating_sub(rect.y) as usize;
+        if row > 0 && row <= page && event.column < rect.right().saturating_sub(1) {
+            let index = start + row - 1;
+            let len = if app.panel == Some(Panel::Files) {
+                app.files.len()
+            } else {
+                app.headings().len()
+            };
+            if index < len {
+                app.panel_index = index;
+                app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+            }
+        }
+        return;
+    }
+    if !body.contains(point) {
+        return;
+    }
+    app.panel_focus = false;
+    app.dirty = true;
+    if let Some(row) = app
+        .layout
+        .rows
+        .get(app.scroll + (event.row - body.y) as usize)
+    {
+        let column = (event.column - body.x) as usize + if row.wide { app.horizontal } else { 0 };
+        let target = row
+            .links
+            .iter()
+            .find(|(range, _)| range.contains(&column))
+            .map(|(_, index)| app.doc.blocks[row.block].links[*index].target.clone());
+        if let Some(target) = target {
+            app.open_target(&target);
+        }
+    }
 }
 fn placement(app: &App, block: usize, rect: Rect, crop: (u32, u32, u32, u32)) -> Option<Placement> {
     let d = app.diagrams.get(&block)?.good.as_ref()?;

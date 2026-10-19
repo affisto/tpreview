@@ -48,7 +48,7 @@ The UI owns a versioned document model. A bounded job channel coalesces document
 
 Successful diagrams are cached by full sanitized source (engine, image mode and font are fixed per worker instance), bounded to 24 entries / 32 MiB. Current-document unchanged diagrams retain their `Arc` result without another worker request. Last-good results attach to a heading plus block-kind ordinal, so renaming a heading or structurally moving diagrams can intentionally lose the fallback rather than promise a perfect identity match.
 
-File reads are bounded and only accept regular UTF-8 files. The application executes only its own renderer executable, never document code, shell syntax or links. It has no network resource loader. Linux renderer address space is limited; macOS uses input/model/pixel/CPU/time/output bounds instead of imposing an unreliable Darwin virtual-memory ceiling.
+File reads are bounded and only accept regular UTF-8 files. The application executes its own renderer and, on explicit HTTP/HTTPS link activation, the OS browser launcher with a single URL argument. Document code and shell syntax are never executed. It has no network resource loader. Linux renderer address space is limited; macOS uses input/model/pixel/CPU/time/output bounds instead of imposing an unreliable Darwin virtual-memory ceiling.
 
 Normal exit, input Ctrl+C, SIGINT, SIGTERM, SIGHUP and unwinding restore raw/alternate modes. SIGKILL and machine/terminal failure cannot be recovered by any user-space cleanup handler.
 

@@ -8,7 +8,7 @@ Markdown 파일을 렌더링된 화면에서 직접 편집하는 VS Code 확장�
 
 ## 1. 설치하고 편집기 열기
 
-1. [VSIX 설치 파일](https://github.com/affisto/tpreview/releases/download/extension-v0.1.2/tpreview-markdown-0.1.2.vsix)을 내려받습니다.
+1. [VSIX 설치 파일](https://github.com/affisto/tpreview/releases/download/extension-v0.1.3/tpreview-markdown-0.1.3.vsix)을 내려받습니다.
 2. VS Code의 확장 화면에서 **⋯ → Install from VSIX…**를 선택하고 파일을 설치합니다.
 3. 편집할 `.md` 파일을 엽니다.
 4. Mac은 **⌘ Shift P**, Windows/Linux는 **Ctrl Shift P**로 명령 팔레트를 열고 **MD Visual Editor: Open Visual Markdown Editor**를 실행합니다.
@@ -58,6 +58,8 @@ VS Code 1.96 이상이 필요합니다. 확장을 사용하기 위해 Node.js나
 ## 알아둘 점
 
 - 수정하지 않은 최상위 블록의 원문 표기는 유지합니다. 수정한 목록이나 표 전체는 Markdown 출력 형식이 정리될 수 있습니다.
-- Front matter, HTML, 각주 등 안전하게 왕복 변환할 수 없는 문법은 원문 편집으로 안내합니다.
+- YAML·TOML frontmatter는 본문 위의 메타데이터 영역에서 읽을 수 있고, 본문을 편집해도 원문을 그대로 보존합니다. 메타데이터 수정은 **Edit metadata in source**를 사용합니다.
+- 링크를 클릭하면 HTTP/HTTPS는 브라우저로, 상대·절대 Markdown 경로는 시각 편집기로 이동합니다. `#제목` 앵커도 지원합니다. 링크 글자를 편집할 때는 Alt-click을 사용합니다.
+- HTML, 각주, 닫히지 않은 frontmatter 등 안전하게 왕복 변환할 수 없는 문법은 원문 편집으로 안내합니다.
 - 외부 수정과 충돌하면 작성 중인 내용을 보관합니다. **Copy my draft**로 복사한 뒤 **Use file version**으로 파일 내용을 불러옵니다.
 - 상태 표시의 `Changes applied to document`는 문서에 수정 내용이 반영됐다는 뜻입니다. 디스크 저장은 Save로 실행합니다.

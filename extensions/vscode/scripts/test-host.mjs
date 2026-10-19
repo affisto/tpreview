@@ -10,10 +10,12 @@ const scratch = await mkdtemp(join(tmpdir(), 'tpreview-vscode-'));
 const capture = process.argv.includes('--capture');
 const profile = join(scratch, 'profile');
 const file = join(scratch, capture ? 'launch-notes.md' : 'notes.md');
-const initial = capture ? await readFile('demo/launch-notes.md', 'utf8') : '# VS Code integration\n\nEdit this paragraph.\n\n- [ ] Verify save\n\n```mermaid\nflowchart LR\n  Edit --> Save\n```\n';
+const metadata = '---\ntitle: "한글 metadata"\nsummary: |\n  Preserve this field.\n---\n\n';
+const initial = capture ? await readFile('demo/launch-notes.md', 'utf8') : metadata + '# VS Code integration\n\nEdit this paragraph.\n\n- [ ] Verify save\n\n```mermaid\nflowchart LR\n  Edit --> Save\n```\n\n[Next document](next%20doc.md#한글-제목)\n';
 await mkdir(join(profile, 'User'), { recursive: true });
 await writeFile(join(profile, 'User/settings.json'), JSON.stringify({ 'workbench.startupEditor': 'none', 'window.restoreWindows': 'none', 'telemetry.telemetryLevel': 'off', 'update.mode': 'none', 'extensions.autoCheckUpdates': false, 'chat.disableAIFeatures': true, ...(capture ? { 'breadcrumbs.enabled': false, 'editor.minimap.enabled': false, 'workbench.activityBar.location': 'hidden', 'workbench.statusBar.visible': false, 'window.commandCenter': false, 'window.zoomLevel': 0, 'editor.fontSize': 16, 'workbench.colorTheme': 'Default Dark Modern' } : {}) }));
 await writeFile(file, initial);
+if (!capture) await writeFile(join(scratch, 'next doc.md'), `# Linked document\n\n${'A paragraph before the target.\n\n'.repeat(70)}## 한글 제목\n\n[Absolute return](<${file}>)\n`);
 let executable = process.env.VSCODE_EXECUTABLE;
 if (!executable && process.platform === 'darwin') {
   const installed = '/Applications/Visual Studio Code.app/Contents/MacOS/Code';
@@ -81,13 +83,30 @@ try {
   await frame.getByRole('checkbox', { name: 'Task complete' }).check();
   await frame.getByRole('button', { name: 'Save', exact: true }).click();
   await expect.poll(() => readFile(file, 'utf8')).toContain('- [x] Verify save');
+  if (!(await readFile(file, 'utf8')).startsWith(metadata)) throw new Error('Editing the body changed frontmatter');
+  await expect(frame.locator('#metadata')).toContainText('한글 metadata');
   await mkdir('../../dist', { recursive: true });
   await page.screenshot({ path: '../../dist/vscode-editor-preview.png' });
+  await frame.getByRole('link', { name: 'Next document', exact: true }).click();
+  const findEditor = async (title) => {
+    let found;
+    await expect.poll(async () => {
+      for (const candidate of page.frames()) {
+        if ((await candidate.locator('.ProseMirror h1').allTextContents().catch(() => [])).includes(title)) { found = candidate; return true; }
+      }
+      return false;
+    }, { timeout: 30_000 }).toBe(true);
+    return found;
+  };
+  frame = await findEditor('Linked document');
+  await expect(frame.locator('.ProseMirror h2')).toBeInViewport();
+  await frame.getByRole('link', { name: 'Absolute return', exact: true }).click();
+  frame = await findEditor('VS Code integration');
   await writeFile(file, '# Changed externally\n\nThe file watcher updates the editor.\n');
   await expect(frame.locator('.ProseMirror h1')).toHaveText('Changed externally', { timeout: 15_000 });
   await frame.getByRole('button', { name: '</> Source' }).click();
   await expect(page.locator('.monaco-editor textarea').first()).toBeAttached();
-  console.log('PASS: real VS Code opens without writes; Mermaid, visual edits, save, undo, redo, tasks, external updates and source switching work.');
+  console.log('PASS: real VS Code preserves frontmatter; relative/absolute links and anchors, Mermaid, edits, save, undo/redo, tasks, external updates and source switching work.');
   }
 } catch (error) {
   await mkdir('../../dist', { recursive: true });

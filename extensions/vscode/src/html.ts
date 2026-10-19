@@ -17,7 +17,7 @@ export function editorHtml(script: string, style: string, cspSource: string, non
 </nav>
 <div id="notice" role="status" hidden></div>
 <section id="conflict" aria-label="Unsaved draft" hidden><p id="conflict-message"></p><div class="actions"><button id="copy">Copy my draft</button><button id="reload">Use file version</button></div><textarea id="draft" aria-label="Your unsaved Markdown draft" readonly></textarea></section>
-<main><div id="editor" aria-label="Visual Markdown editor"></div><section id="fallback" hidden><h1>Continue in the source editor</h1><p id="fallback-reason"></p><button id="fallback-source">Open source</button><pre id="raw"></pre></section></main>
+<main><details id="frontmatter" open hidden><summary id="frontmatter-label">Frontmatter</summary><pre id="metadata"></pre><button id="frontmatter-source">Edit metadata in source</button></details><div id="editor" aria-label="Visual Markdown editor"></div><section id="fallback" hidden><h1>Continue in the source editor</h1><p id="fallback-reason"></p><button id="fallback-source">Open source</button><pre id="raw"></pre></section></main>
 <footer><span id="status" role="status">Opening document…</span><span>Markdown · Visual editor</span></footer>
 <dialog id="link-dialog"><form method="dialog"><label for="link-url">Link URL</label><input id="link-url" type="text" placeholder="https://… or ./document.md" required><div class="actions"><button value="cancel" formnovalidate>Cancel</button><button value="insert">Insert link</button></div></form></dialog>
 <script type="module" nonce="${escape(nonce)}" src="${escape(script)}"></script></body></html>`;

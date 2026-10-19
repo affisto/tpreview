@@ -1,7 +1,7 @@
 #!/bin/sh
 # Release installer: POSIX sh + curl or wget + tar + sha256sum or shasum.
 # The default is pinned to this script's release, even through /releases/latest/.
-TPREVIEW_DEFAULT_VERSION='v0.1.1'
+TPREVIEW_DEFAULT_VERSION='v0.1.2'
 
 main() {
     set -eu
@@ -28,7 +28,7 @@ main() {
         esac
     done
     case "$version" in *[!0-9A-Za-z.-]*) die 'Invalid release tag' ;; esac
-    printf '%s\n' "$version" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$' || die 'Expected a release tag such as v0.1.1'
+    printf '%s\n' "$version" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$' || die 'Expected a release tag such as v0.1.2'
     if [ -z "$install_dir" ]; then
         [ -n "${HOME:-}" ] || die 'Set --bin-dir when HOME is unset'
         install_dir=$HOME/.local/bin

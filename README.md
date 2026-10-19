@@ -37,9 +37,9 @@ tpreview --watch README.md
 Choose an install directory or pin a version:
 
 ```sh
-curl -fsSL https://github.com/affisto/tpreview/releases/download/v0.1.1/install.sh | sh -s -- --bin-dir "$HOME/bin"
+curl -fsSL https://github.com/affisto/tpreview/releases/download/v0.1.2/install.sh | sh -s -- --bin-dir "$HOME/bin"
 # An installer can also select a specific compatible release:
-curl -fsSL https://github.com/affisto/tpreview/releases/latest/download/install.sh | sh -s -- --version v0.1.1
+curl -fsSL https://github.com/affisto/tpreview/releases/latest/download/install.sh | sh -s -- --version v0.1.2
 ```
 
 `TPREVIEW_INSTALL_DIR`, `TPREVIEW_VERSION` and `TPREVIEW_DOWNLOADER` are equivalent environment options for the installer. Run `sh install.sh --help` after downloading the script for all options. The script never edits shell profiles, uses sudo or removes macOS quarantine settings. Failed downloads/checksums/version checks leave an existing executable intact. Re-running installs/upgrades the selected version.
@@ -94,7 +94,7 @@ tpreview --render image README.md
 tpreview --doctor
 ```
 
-- A directory opens the file panel and its first Markdown document. `f` refreshes/toggles that panel.
+- A directory opens the file panel and its first Markdown document. `f` refreshes and focuses that panel; press it again while focused to close it. Click a file or use `j/k` and Enter to open it.
 - `--watch` watches the current file, debounces 180 ms, handles atomic saves, and reconciles every second if filesystem events are lost. Other files never steal the current view.
 - `auto` queries the controlling terminal for Kitty graphics and cell size, with a 350 ms deadline. Terminal names alone never enable images. Unknown terminals, tmux, screen, and failed probes use text.
 - `image` requests images but retains the same capability checks; it safely falls back to text with an explanation. Sixel and iTerm2 image protocols are not implemented.
@@ -118,15 +118,18 @@ Headings, paragraphs, nested lists, tasks, block quotes, fenced code, syntax hig
 | Tab / Shift+Tab | Select next / previous link or diagram |
 | Enter | Open selection; if none, open the first visible actionable item |
 | `b`, Backspace | Return to previous document and reading position |
-| `f` / `t` | Toggle files / heading contents; `j/k`, Enter select |
+| `f` / `t` | Focus or close files / heading contents; `j/k`, Enter or `l` select |
+| Click / mouse wheel | Open a file or link / scroll the pointed panel or document |
 | Esc | Close panel, selection and search highlighting |
 | `r` | Reload |
 | `?` | Complete, scrollable keyboard guide |
 | `q`, Ctrl+C | Quit; `q` first closes an open guide/detail |
 
-In a diagram detail view, `+` / `-` zoom **images**, `0` resets, arrows or `h/j/k/l` pan, and PageUp/Down move vertically. Text diagrams pan without geometric zoom. Esc returns to the document. Below 60 columns, navigation panels replace the reading area until closed.
+In a diagram detail view, `+` / `-` zoom **images**, `0` resets, arrows or `h/j/k/l` pan, and PageUp/Down move vertically. Text diagrams pan without geometric zoom. Esc returns to the document. Below 60 columns, navigation panels replace the reading area while focused and reveal the document after selection. Hold Shift while dragging to use terminal text selection.
 
-Relative `.md` / `.markdown` links and `#heading` fragments open within the TUI; remote links are displayed but never opened. For stdin, relative links resolve from the current working directory. Search is a case-insensitive literal search of rendered lines; image diagrams are also searchable by their Mermaid source. A phrase split across wrapped rows is not matched as one phrase.
+Click a link or select it with Tab and press Enter. HTTP/HTTPS URLs open in the default browser using macOS `open` or Linux `xdg-open` on the running host. Relative and absolute file paths (including local `file:///` URLs) open inside the TUI; Markdown is rendered and other UTF-8 text files show their literal source. `#heading` fragments jump to headings, including links to another document. `b` returns to the previous reading position. For stdin, relative links resolve from the current working directory. Search is a case-insensitive literal search of rendered lines; image diagrams are also searchable by their Mermaid source. A phrase split across wrapped rows is not matched as one phrase.
+
+YAML (`---`) and TOML (`+++`) frontmatter appears in a separate, literal metadata block. Multiline values and comments remain readable and do not become document headings or links.
 
 ## Mermaid and editing
 
@@ -172,13 +175,13 @@ The optional [MD Visual Editor extension](extensions/vscode/README.md) adds WYSI
 
 [![MD Visual Editor — click to watch the walkthrough](https://raw.githubusercontent.com/affisto/tpreview/b0e2915/docs/media/md-visual-editor/01-overview.png)](https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/md-visual-editor-walkthrough.mp4)
 
-**Install on another computer:** download the [VSIX package](https://github.com/affisto/tpreview/releases/download/extension-v0.1.2/tpreview-markdown-0.1.2.vsix), then use **Extensions → … → Install from VSIX…** in VS Code. No Node.js or Rust installation is needed. To build it yourself:
+**Install on another computer:** download the [VSIX package](https://github.com/affisto/tpreview/releases/download/extension-v0.1.3/tpreview-markdown-0.1.3.vsix), then use **Extensions → … → Install from VSIX…** in VS Code. No Node.js or Rust installation is needed. To build it yourself:
 
 ```sh
 cd extensions/vscode
 npm ci
 npm run package
-code --install-extension ../../dist/tpreview-markdown-0.1.2.vsix
+code --install-extension ../../dist/tpreview-markdown-0.1.3.vsix
 ```
 
 Then run **MD Visual Editor: Open Visual Markdown Editor** for a Markdown file. See the extension README for source-preservation limits and testing instructions. VSIX downloads are available through GitHub Releases.

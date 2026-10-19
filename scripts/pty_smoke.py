@@ -19,7 +19,7 @@ import time
 BIN = str(Path(sys.argv[1] if len(sys.argv) > 1 else "target/debug/tpreview").resolve())
 
 class Session:
-    def __init__(self, args, stdin=None, image=False, tmux=False):
+    def __init__(self, args, stdin=None, image=False, tmux=False, extra_env=None):
         self.master, self.slave = os.openpty()
         self.initial = termios.tcgetattr(self.slave)
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack("HHHH", 34, 100, 800, 544))
@@ -43,6 +43,7 @@ class Session:
                 if pipe:
                     os.close(pipe[1])
                 env = os.environ.copy()
+                env.update(extra_env or {})
                 env.pop("TMUX", None)
                 env["TERM"] = "xterm-kitty" if not image else "unrecognized-terminal"
                 if tmux:
@@ -125,6 +126,7 @@ class Session:
         assert report["status"] == 0, report
         assert report["restored"], report
         assert b"\x1b[?1049l" in self.data, "missing alternate-screen exit"
+        assert b"\x1b[?1006l" in self.data, "mouse capture not restored"
         os.close(self.master)
         os.close(self.slave)
 
@@ -142,6 +144,38 @@ def run():
         md = root / "design.md"
         initial = "# Start\n\n```mermaid\nflowchart LR\nA[Alpha] --> B[Bravo]\n```\n\n## Sequence\n\n```mermaid\nsequenceDiagram\nA->>B: Ping\n```\n"
         md.write_text(initial)
+        navigation = root / 'navigation'
+        navigation.mkdir()
+        (navigation / 'a.md').write_text('# First file\n\n[Second](b.md)\n')
+        (navigation / 'b.md').write_text('---\ntitle: Metadata value\n---\n\n# Second file\n')
+        s = Session(['--render', 'text', str(navigation)])
+        s.until(lambda b: b'FILES' in b)
+        s.send(b'j\r')
+        s.until(lambda b: b'Metadata value' in b)
+        s.send(b'fk\r')
+        s.send(b'\x1b[<0;5;5M')  # Second file row in the visible file panel.
+        s.finish()
+        print('PASS file selection via Vim keys and SGR mouse, with literal frontmatter')
+
+        launcher_dir = root / 'launchers'
+        launcher_dir.mkdir()
+        launcher = launcher_dir / ('open' if sys.platform == 'darwin' else 'xdg-open')
+        launcher.write_text('#!/bin/sh\nprintf %s "$1" > "$TPREVIEW_BROWSER_LOG"\n')
+        launcher.chmod(0o755)
+        browser_log = root / 'browser-url.txt'
+        url = 'https://example.org/docs?q=hello&lang=ko#heading'
+        (navigation / 'web.md').write_text(f'# Web link\n\n[Browser]({url})\n')
+        s = Session(['--render', 'text', str(navigation / 'web.md')], extra_env={
+            'PATH': str(launcher_dir) + os.pathsep + os.environ.get('PATH', ''),
+            'TPREVIEW_BROWSER_LOG': str(browser_log),
+        })
+        s.until(lambda b: b'Web link' in b)
+        s.send(b'\t\r')
+        s.until(lambda b: browser_log.exists())
+        assert browser_log.read_text() == url
+        s.finish()
+        print('PASS explicit URL activation invokes the OS browser launcher with one exact URL argument')
+
         s = Session(["--render", "auto", str(md)])
         s.until(lambda b: b"text" in b and b"Alpha" in b)
         assert b"a=T" not in s.data, "TERM name alone enabled images"

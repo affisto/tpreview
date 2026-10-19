@@ -32,6 +32,8 @@ pub struct Row {
     pub block: usize,
     pub wide: bool,
     pub image: Option<(usize, usize, usize)>,
+    /// Display-cell ranges and the link index within this row's document block.
+    pub links: Vec<(std::ops::Range<usize>, usize)>,
 }
 impl Row {
     pub fn text(&self) -> String {
@@ -63,6 +65,7 @@ impl Layout {
                     block: i,
                     wide,
                     image: img,
+                    links: Vec::new(),
                 })
             };
             match &block.kind {
@@ -123,9 +126,19 @@ impl Layout {
                         }
                     }
                 }
-                Kind::Code(lang) => {
+                Kind::Code(lang) | Kind::Frontmatter(lang) => {
                     add(
-                        Line::styled(format!("┌ {lang} · ←/→ to pan"), Style::default().fg(MUTED)),
+                        Line::styled(
+                            format!(
+                                "┌ {}{lang} · ←/→ to pan",
+                                if matches!(block.kind, Kind::Frontmatter(_)) {
+                                    "Frontmatter · "
+                                } else {
+                                    ""
+                                }
+                            ),
+                            Style::default().fg(MUTED),
+                        ),
                         true,
                         None,
                     );
@@ -188,17 +201,51 @@ impl Layout {
                         Kind::Quote => "│ ".into(),
                         _ => String::new(),
                     };
-                    let style = if block.links.is_empty() {
-                        style
-                    } else {
-                        style.add_modifier(Modifier::UNDERLINED)
-                    };
                     for line in wrap(&format!("{prefix}{}", block.text), width) {
                         add(Line::styled(line, style), false, None);
                     }
                 }
             }
             add(Line::raw(""), false, None);
+            if !block.links.is_empty() {
+                let prefix = match block.kind {
+                    Kind::Heading(level) => format!("{} ", "#".repeat(level as usize)),
+                    Kind::Quote => "│ ".into(),
+                    _ => String::new(),
+                };
+                let rendered = format!("{prefix}{}", block.text);
+                let mut offset = 0;
+                let end = result.rows.len() - 1;
+                for row in &mut result.rows[result.starts[i]..end] {
+                    let text = row.text();
+                    let mut spans = Vec::new();
+                    let mut cursor = 0;
+                    for (index, link) in block.links.iter().enumerate() {
+                        let start = (link.range.start + prefix.len()).max(offset);
+                        let end = (link.range.end + prefix.len()).min(offset + text.len());
+                        if start < end {
+                            let start = start - offset;
+                            let end = end - offset;
+                            row.links
+                                .push((text[..start].width()..text[..end].width(), index));
+                            spans.push(Span::raw(text[cursor..start].to_owned()));
+                            spans.push(Span::styled(
+                                text[start..end].to_owned(),
+                                Style::default()
+                                    .fg(ACCENT)
+                                    .add_modifier(Modifier::UNDERLINED),
+                            ));
+                            cursor = end;
+                        }
+                    }
+                    spans.push(Span::raw(text[cursor..].to_owned()));
+                    row.line.spans = spans;
+                    offset += text.len();
+                    if rendered.as_bytes().get(offset) == Some(&b'\n') {
+                        offset += 1;
+                    }
+                }
+            }
         }
         result
     }

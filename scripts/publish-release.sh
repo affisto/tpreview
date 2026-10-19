@@ -14,7 +14,7 @@ fi
 notes=$(mktemp)
 trap 'rm -f "$notes"' 0
 cat > "$notes" <<NOTES
-Offline Markdown and Mermaid terminal reader. This release adds automatic release bundles and a checked installer.
+Offline Markdown and Mermaid terminal reader. This release improves file-panel selection with Vim keys and mouse clicks, opens document links and browser URLs, and displays YAML/TOML frontmatter. Local Markdown links support relative/absolute paths and heading fragments; other UTF-8 files are shown as text.
 
 Install with curl:
 \`\`\`sh

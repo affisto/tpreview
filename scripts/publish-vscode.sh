@@ -37,11 +37,13 @@ Requires VS Code **1.96 or later**. The VSIX is platform-independent; Node.js an
 ### Included
 
 - Visual editing of headings, formatting, lists, tasks and tables.
+- Readable YAML/TOML frontmatter, preserved exactly while editing the document body.
+- Clickable browser URLs, relative/absolute document paths and heading anchors.
 - Offline Mermaid previews with code editing and last-valid-result fallback.
 - Source editor switching, normal file saving and VS Code undo/redo.
 - Original spelling of unchanged Markdown blocks and draft preservation on external-edit conflicts.
 
-Front matter, raw HTML, reference links, footnotes and unsupported syntax use the source editor. Edited blocks may be normalized. Real OS IME candidate-window behavior and remote hosts still need manual verification.
+Metadata editing, unclosed frontmatter, raw HTML, reference links, footnotes and unsupported syntax use the source editor. Edited blocks may be normalized. Real OS IME candidate-window behavior and remote hosts still need manual verification.
 
 The package passed type checking, unit tests, browser interaction tests and an actual VS Code host test in GitHub Actions. The adjacent SHA-256 file verifies the download. This release is distributed through GitHub, not the VS Code Marketplace; install updates from their new VSIX files.
 NOTES

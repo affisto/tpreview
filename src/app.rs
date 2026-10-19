@@ -60,6 +60,7 @@ pub struct App {
     pub worker: Worker,
     pending: Option<Job>,
     history: Vec<(Option<PathBuf>, String, usize, usize)>,
+    browser: Option<std::sync::mpsc::Receiver<Result<(), String>>>,
     pub quit: bool,
 }
 impl App {
@@ -109,6 +110,7 @@ impl App {
             cap,
             pending: None,
             history: Vec::new(),
+            browser: None,
             quit: false,
         };
         if watch && app.watch.is_none() {
@@ -136,7 +138,14 @@ impl App {
         };
         self.version += 1;
         self.source = source;
-        self.doc = Document::parse(&self.source);
+        self.doc = if let Some(path) = self.path.as_ref().filter(|p| !source::is_markdown(p)) {
+            Document::plain(
+                &self.source,
+                path.extension().and_then(|e| e.to_str()).unwrap_or("text"),
+            )
+        } else {
+            Document::parse(&self.source)
+        };
         self.diagrams.clear();
         self.actions.clear();
         self.selected = None;
@@ -169,11 +178,11 @@ impl App {
                     label: "Mermaid detail".into(),
                 });
             }
-            for (label, target) in &b.links {
+            for link in &b.links {
                 self.actions.push(Action {
                     block: i,
-                    target: Some(target.clone()),
-                    label: format!("{label} → {target}"),
+                    target: Some(link.target.clone()),
+                    label: format!("{} → {}", link.label, link.target),
                 });
             }
         }
@@ -249,6 +258,11 @@ impl App {
         true
     }
     pub fn tick(&mut self) {
+        if let Some(result) = self.browser.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.message = result.map_or_else(|e| e, |_| "opened in browser".into());
+            self.browser = None;
+            self.dirty = true;
+        }
         if let Some(job) = self.pending.take() {
             self.pending = self.worker.submit(job).err();
         }
@@ -339,6 +353,9 @@ impl App {
             }
         }
         self.path = Some(path.clone());
+        if let Some(index) = self.files.iter().position(|p| p == &path) {
+            self.panel_index = index;
+        }
         self.replace(source, false);
         self.panel_focus = false;
         self.message = "opened".into();
@@ -356,13 +373,65 @@ impl App {
             }
         }
         if let Some(anchor) = fragment {
-            if let Some(i) = self.doc.blocks.iter().position(|b| b.anchor == anchor) {
-                self.scroll = self.layout.starts[i];
-            } else {
-                self.message = format!("heading not found: {anchor}");
-            }
+            self.jump_to_heading(&anchor);
         }
         Ok(())
+    }
+    fn jump_to_heading(&mut self, anchor: &str) {
+        if anchor.is_empty() {
+            self.scroll = 0;
+        } else if let Some(i) = self
+            .doc
+            .blocks
+            .iter()
+            .position(|b| matches!(b.kind, Kind::Heading(_)) && b.anchor == anchor)
+        {
+            self.scroll = self.layout.starts[i];
+        } else {
+            self.message = format!("heading not found: {anchor}");
+        }
+        self.horizontal = 0;
+        self.selected = None;
+        self.panel_focus = false;
+    }
+    pub fn open_target(&mut self, target: &str) {
+        self.selected = None;
+        let result = (|| -> Result<()> {
+            if target.starts_with("//") {
+                self.browser = Some(source::open_browser(&format!("https:{target}"))?);
+                self.message = "opening browser…".into();
+            } else if source::is_web_link(target) {
+                self.browser = Some(source::open_browser(target)?);
+                self.message = "opening browser…".into();
+            } else if let Some(anchor) = target.strip_prefix('#') {
+                let anchor = source::percent_decode(anchor)?;
+                self.history.push((
+                    self.path.clone(),
+                    self.source.clone(),
+                    self.scroll,
+                    self.horizontal,
+                ));
+                if self.history.len() > 32 {
+                    self.history.remove(0);
+                }
+                self.jump_to_heading(&anchor);
+            } else {
+                let (path, anchor) = source::resolve_link(self.path.as_deref(), target)?;
+                self.navigate(path, anchor, true)?;
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            self.message = source::safe(&error.to_string());
+        }
+        self.dirty = true;
+    }
+    fn panel_len(&self) -> usize {
+        if self.panel == Some(Panel::Files) {
+            self.files.len()
+        } else {
+            self.headings().len()
+        }
     }
     fn enter(&mut self) -> Result<()> {
         if self.panel_focus {
@@ -394,8 +463,7 @@ impl App {
             .cloned()
             .context("Tab selects a link or diagram; Enter opens it")?;
         if let Some(target) = action.target {
-            let (path, anchor) = source::resolve_link(self.path.as_deref(), &target)?;
-            self.navigate(path, anchor, true)?;
+            self.open_target(&target);
         } else {
             self.detail = Some(Detail {
                 block: action.block,
@@ -493,7 +561,7 @@ impl App {
                 } else {
                     Panel::Toc
                 };
-                if self.panel == Some(panel) {
+                if self.panel == Some(panel) && self.panel_focus {
                     self.panel = None;
                     self.panel_focus = false;
                 } else {
@@ -501,7 +569,14 @@ impl App {
                         self.files = source::markdown_files(&self.root);
                     }
                     self.panel = Some(panel);
-                    self.panel_index = 0;
+                    self.panel_index = if panel == Panel::Files {
+                        self.files
+                            .iter()
+                            .position(|p| Some(p) == self.path.as_ref())
+                            .unwrap_or(0)
+                    } else {
+                        0
+                    };
                     self.panel_focus = true;
                 }
             }
@@ -537,22 +612,47 @@ impl App {
                 self.horizontal = self.horizontal.saturating_sub(4)
             }
             KeyCode::Right | KeyCode::Char('l') => {
-                self.horizontal = (self.horizontal + 4).min(65536)
+                if self.panel_focus {
+                    if let Err(e) = self.enter() {
+                        self.message = source::safe(&e.to_string());
+                    }
+                } else {
+                    self.horizontal = (self.horizontal + 4).min(65536);
+                }
             }
             KeyCode::PageDown | KeyCode::Char(' ') => {
-                self.scroll = self.scroll.saturating_add(self.height.saturating_sub(2));
+                if self.panel_focus {
+                    self.panel_index = (self.panel_index + self.height.saturating_sub(2))
+                        .min(self.panel_len().saturating_sub(1));
+                } else {
+                    self.scroll = self.scroll.saturating_add(self.height.saturating_sub(2));
+                }
                 self.selected = None;
             }
             KeyCode::PageUp => {
-                self.scroll = self.scroll.saturating_sub(self.height.saturating_sub(2));
+                if self.panel_focus {
+                    self.panel_index = self
+                        .panel_index
+                        .saturating_sub(self.height.saturating_sub(2));
+                } else {
+                    self.scroll = self.scroll.saturating_sub(self.height.saturating_sub(2));
+                }
                 self.selected = None;
             }
             KeyCode::Home | KeyCode::Char('g') => {
-                self.scroll = 0;
+                if self.panel_focus {
+                    self.panel_index = 0;
+                } else {
+                    self.scroll = 0;
+                }
                 self.selected = None;
             }
             KeyCode::End | KeyCode::Char('G') => {
-                self.scroll = self.layout.rows.len().saturating_sub(self.height);
+                if self.panel_focus {
+                    self.panel_index = self.panel_len().saturating_sub(1);
+                } else {
+                    self.scroll = self.layout.rows.len().saturating_sub(self.height);
+                }
                 self.selected = None;
             }
             KeyCode::Char('/') => {
@@ -591,6 +691,7 @@ impl App {
             KeyCode::Char('b') | KeyCode::Backspace => {
                 if let Some((path, source, scroll, horizontal)) = self.history.pop() {
                     self.path = path;
+                    self.panel_focus = false;
                     self.replace(source, false);
                     self.scroll = scroll;
                     self.horizontal = horizontal;

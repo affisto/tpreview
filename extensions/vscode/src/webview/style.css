@@ -71,3 +71,9 @@ dialog { background: var(--paper); color: var(--ink); border: 1px solid var(--li
 dialog label { display: block; margin-bottom: 10px; } dialog input { width: 100%; padding: 9px; background: var(--surface); border: 1px solid var(--line); margin-bottom: 14px; } dialog .actions { justify-content: end; }
 @media (max-width: 520px) { header { padding: 8px 12px; } #filename { display: none; } #toolbar { padding: 6px 10px; } main { padding: 26px 18px 70px; } footer > :last-child { display: none; } .ProseMirror { font-size: 15px; } }
 @media (prefers-reduced-motion: reduce) { .ProseMirror-gapcursor:after { animation: none; } }
+#frontmatter { margin-bottom: 28px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+#frontmatter summary { padding: 10px 14px; cursor: pointer; color: var(--muted); font-size: 13px; }
+#frontmatter pre { max-height: 280px; }
+#frontmatter button { margin: 0 8px 8px; color: var(--accent); }
+.ProseMirror a { cursor: pointer; }
+.ProseMirror :is(h1,h2,h3,h4,h5,h6) { scroll-margin-top: 100px; }

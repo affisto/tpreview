@@ -42,15 +42,15 @@ Choose **Source** to return to the normal VS Code text editor. Save writes back 
 
 ## Install on another computer
 
-Download [MD Visual Editor 0.1.2](https://github.com/affisto/tpreview/releases/download/extension-v0.1.2/tpreview-markdown-0.1.2.vsix), then choose **Extensions → … → Install from VSIX…** in VS Code. Select the downloaded file. VS Code 1.96 or later is required; Node.js and Rust are not needed to install or use the package.
+Download [MD Visual Editor 0.1.3](https://github.com/affisto/tpreview/releases/download/extension-v0.1.3/tpreview-markdown-0.1.3.vsix), then choose **Extensions → … → Install from VSIX…** in VS Code. Select the downloaded file. VS Code 1.96 or later is required; Node.js and Rust are not needed to install or use the package.
 
 Or, from the folder containing the download:
 
 ```sh
-code --install-extension tpreview-markdown-0.1.2.vsix
+code --install-extension tpreview-markdown-0.1.3.vsix
 ```
 
-See the [release page](https://github.com/affisto/tpreview/releases/tag/extension-v0.1.2) for the checksum and release notes. For manual installations, install a newer VSIX to update the extension.
+See the [release page](https://github.com/affisto/tpreview/releases/tag/extension-v0.1.3) for the checksum and release notes. For manual installations, install a newer VSIX to update the extension.
 
 ## Build locally
 
@@ -60,7 +60,7 @@ Requires Node.js 22 for development and VS Code 1.96 or later to run.
 cd extensions/vscode
 npm ci
 npm run package
-code --install-extension ../../dist/tpreview-markdown-0.1.2.vsix
+code --install-extension ../../dist/tpreview-markdown-0.1.3.vsix
 ```
 
 The build writes the VSIX and its SHA-256 checksum to the repository's `dist` directory.
@@ -75,19 +75,20 @@ Open a Markdown file and run **MD Visual Editor: Open Visual Markdown Editor** f
 - **Source** opens the same file in VS Code's text editor. Run the MD Visual Editor command to return to visual editing.
 - **Save**, ⌘/Ctrl S, and VS Code's normal file saving write the Markdown document. The status bar says when changes have reached the document, not when they have been saved to disk.
 - Undo/redo use the VS Code document history, including the toolbar and ⌘/Ctrl Z / Shift Z. Ctrl Y also requests redo.
-- ⌘/Ctrl-click a link to open an HTTPS/HTTP URL or a relative Markdown file. Anchor navigation within the visual editor is not implemented yet.
+- Click a link to open an HTTP/HTTPS URL in your browser or a relative/absolute Markdown path in the visual editor. Local `file:///` URLs also work; other text files open in VS Code’s text editor. `#heading` fragments jump within the current or linked document. ⌘/Ctrl-click also works; Alt-click places the caret for link-text editing.
+- YAML and TOML frontmatter is shown above the body. Edit the body normally; metadata, comments, BOM and line endings are preserved. **Edit metadata in source** opens the original file for metadata changes.
 
 ## Source preservation and conflicts
 
 Opening or selecting content never rewrites the file. Unchanged top-level blocks retain their original Markdown spelling. Edited blocks use the editor's Markdown serializer, so editing one list or table can normalize that entire block. CRLF and the existing final-newline convention are preserved. This is not a byte-preserving editor for changed blocks.
 
-Front matter, raw HTML, reference links/images, footnotes, code fence metadata, and documents that fail a semantic round-trip check open in a source-only fallback. The original text is shown inertly and stays unchanged. Files over 1 MB also use this fallback.
+Unclosed frontmatter, raw HTML, reference links/images, footnotes, code fence metadata, and documents that fail a semantic round-trip check open in a source-only fallback. The original text is shown inertly and stays unchanged. Files over 1 MB also use this fallback.
 
 The underlying VS Code `TextDocument` is authoritative. Each visual edit is version checked and sent as a minimal text replacement. Clean external changes update the view. If another editor changes a file while a visual edit is pending, the extension stops editing and preserves the local draft. Copy it before choosing **Use file version**. Pending drafts are also stored in the webview state for recovery when VS Code restores that view.
 
 ## Local operation
 
-All scripts, editor dependencies and Mermaid rendering are bundled. No CDN, server, Rust binary, or API key is needed at runtime. Document HTML is never executed, Mermaid uses strict security mode, and diagrams are limited to 50,000 characters. Local images inside the document's directory are supported. External images are shown as placeholders rather than fetched automatically. Remote links open only on an explicit ⌘/Ctrl-click. VS Code Remote can run the extension on its extension host; vscode.dev/browser-only hosting is not included in this version.
+All scripts, editor dependencies and Mermaid rendering are bundled. No CDN, server, Rust binary, or API key is needed at runtime. Document HTML is never executed, Mermaid uses strict security mode, and diagrams are limited to 50,000 characters. Local images inside the document's directory are supported. External images are shown as placeholders rather than fetched automatically. Remote links open only on an explicit click. VS Code Remote can run the extension on its extension host; vscode.dev/browser-only hosting is not included in this version.
 
 ## Development and verification
 
@@ -105,7 +106,7 @@ npm run package
 
 `test:ui` uses the production webview bundle and CSP with a document bridge harness. It covers text/task/table editing, save/source actions, Mermaid rendering and errors, external edits, conflicts, undo/redo, synthetic Korean composition events, and narrow editor panes. Real OS IME candidate-window behavior still requires a manual check.
 
-`test:host` launches an isolated VS Code profile, drives the actual extension with Playwright over a temporary local debugging port, and verifies the file on disk. It checks opening without writes, Mermaid, editing, save, undo/redo, tasks, external file updates, and source switching. On macOS it uses an installed VS Code; otherwise it downloads the stable test build. Set `VSCODE_EXECUTABLE` to choose another build. Linux CI needs `xvfb-run -a npm run test:host`. The test closes its process and removes its temporary profile. A screenshot is written to `../../dist/vscode-editor-preview.png`.
+`test:host` launches an isolated VS Code profile, drives the actual extension with Playwright over a temporary local debugging port, and verifies the file on disk. It checks opening without writes, frontmatter preservation, relative/absolute links and cross-document anchors, Mermaid, editing, save, undo/redo, tasks, external file updates, and source switching. On macOS it uses an installed VS Code; otherwise it downloads the stable test build. Set `VSCODE_EXECUTABLE` to choose another build. Linux CI needs `xvfb-run -a npm run test:host`. The test closes its process and removes its temporary profile. A screenshot is written to `../../dist/vscode-editor-preview.png`.
 
 Manual follow-ups: real Korean IME composition, accessibility with a screen reader, very large documents, and remote extension hosts.
 
