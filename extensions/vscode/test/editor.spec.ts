@@ -118,9 +118,9 @@ test('frontmatter is readable and stays byte exact while the body is edited and 
   await expect(page.locator('#metadata')).toContainText('Second line');
 });
 
-test('single-click and modifier-click send links, Alt-click keeps editing, anchors select headings', async ({ page }) => {
+test('single-click and modifier-click send links, Alt-click keeps editing, anchors reveal headings', async ({ page }) => {
   await open(page);
-  await page.evaluate(() => window.externalChange('# 한글 제목\n\n[Web](https://example.org) [Relative](../next%20doc.md#heading) [Absolute](/tmp/next.md) [Jump](#한글-제목-1)\n\n## 한글 제목\n'));
+  await page.evaluate(() => window.externalChange('# 한글 제목\n\n[Web](https://example.org) [Relative](../next%20doc.md#heading) [Absolute](/tmp/next.md) [Jump](#한글-제목-1)\n\n' + 'Paragraph before the target.\n\n'.repeat(50) + '## 한글 제목\n'));
   const messages = () => page.evaluate(() => window.__host.messages.filter(m => m.type === 'link'));
   await page.getByRole('link', { name: 'Web', exact: true }).click();
   await expect.poll(messages).toEqual([{ type: 'link', href: 'https://example.org' }]);
@@ -130,7 +130,7 @@ test('single-click and modifier-click send links, Alt-click keeps editing, ancho
   await page.getByRole('link', { name: 'Web', exact: true }).click({ modifiers: ['Alt'] });
   expect(await messages()).toHaveLength(3);
   await page.getByRole('link', { name: 'Jump', exact: true }).click();
-  await expect(page.locator('.ProseMirror h2')).toBeFocused();
+  await expect(page.locator('.ProseMirror h2')).toBeInViewport();
   expect(await page.evaluate(() => window.__host.edits.length)).toBe(0);
 });
 
