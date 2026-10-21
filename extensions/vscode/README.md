@@ -42,15 +42,15 @@ Choose **Source** to return to the normal VS Code text editor. Save writes back 
 
 ## Install on another computer
 
-Download [MD Visual Editor 0.1.3](https://github.com/affisto/tpreview/releases/download/extension-v0.1.3/tpreview-markdown-0.1.3.vsix), then choose **Extensions → … → Install from VSIX…** in VS Code. Select the downloaded file. VS Code 1.96 or later is required; Node.js and Rust are not needed to install or use the package.
+Download [MD Visual Editor 0.1.4](https://github.com/affisto/tpreview/releases/download/extension-v0.1.4/tpreview-markdown-0.1.4.vsix), then choose **Extensions → … → Install from VSIX…** in VS Code. Select the downloaded file. VS Code 1.96 or later is required; Node.js and Rust are not needed to install or use the package.
 
 Or, from the folder containing the download:
 
 ```sh
-code --install-extension tpreview-markdown-0.1.3.vsix
+code --install-extension tpreview-markdown-0.1.4.vsix
 ```
 
-See the [release page](https://github.com/affisto/tpreview/releases/tag/extension-v0.1.3) for the checksum and release notes. For manual installations, install a newer VSIX to update the extension.
+See the [release page](https://github.com/affisto/tpreview/releases/tag/extension-v0.1.4) for the checksum and release notes. For manual installations, install a newer VSIX to update the extension.
 
 ## Build locally
 
@@ -60,7 +60,7 @@ Requires Node.js 22 for development and VS Code 1.96 or later to run.
 cd extensions/vscode
 npm ci
 npm run package
-code --install-extension ../../dist/tpreview-markdown-0.1.3.vsix
+code --install-extension ../../dist/tpreview-markdown-0.1.4.vsix
 ```
 
 The build writes the VSIX and its SHA-256 checksum to the repository's `dist` directory.
@@ -72,11 +72,13 @@ Open a Markdown file and run **MD Visual Editor: Open Visual Markdown Editor** f
 - Edit headings, paragraphs, bold/italic/strikethrough text, links, lists, quotes, code, task checkboxes and GFM table cells directly.
 - Use the formatting bar, or standard Markdown typing shortcuts. **Table** inserts a 3×3 table; Tab moves between cells. **Task** inserts a task item.
 - **Diagram** inserts a Mermaid block. **Edit diagram** reveals its source; the preview updates as you type. Invalid syntax retains the last valid preview and displays an error.
+- Each Mermaid preview has **− / +**, a percentage button that restores **100%**, and **Fit** for fitting its width to the pane. ⌘/Ctrl-wheel also zooms. Drag or scroll to move around a large diagram; when the preview has focus, use **+ / − / 0**. Zooming never changes the Markdown file.
 - **Source** opens the same file in VS Code's text editor. Run the MD Visual Editor command to return to visual editing.
 - **Save**, ⌘/Ctrl S, and VS Code's normal file saving write the Markdown document. The status bar says when changes have reached the document, not when they have been saved to disk.
 - Undo/redo use the VS Code document history, including the toolbar and ⌘/Ctrl Z / Shift Z. Ctrl Y also requests redo.
 - Click a link to open an HTTP/HTTPS URL in your browser or a relative/absolute Markdown path in the visual editor. Local `file:///` URLs also work; other text files open in VS Code’s text editor. `#heading` fragments jump within the current or linked document. ⌘/Ctrl-click also works; Alt-click places the caret for link-text editing.
-- YAML and TOML frontmatter is shown above the body. Edit the body normally; metadata, comments, BOM and line endings are preserved. **Edit metadata in source** opens the original file for metadata changes.
+- Edit YAML frontmatter directly above the body in the bundled YAML editor, with syntax highlighting, line numbers, two-space Tab indentation and inline diagnostics. **Save** and **Undo/Redo** work for both metadata and body edits. Comments, delimiters, BOM, line endings and unrelated body text are preserved. **Add YAML frontmatter** creates a metadata block for a document without one.
+- The YAML editor contains the fields only; opening/closing delimiters are managed automatically. Syntax errors are shown while you type and can be saved as text; delimiter lines stay in a recoverable draft until corrected. TOML remains readable, with **Open metadata source** available for editing.
 
 ## Source preservation and conflicts
 
@@ -88,7 +90,7 @@ The underlying VS Code `TextDocument` is authoritative. Each visual edit is vers
 
 ## Local operation
 
-All scripts, editor dependencies and Mermaid rendering are bundled. No CDN, server, Rust binary, or API key is needed at runtime. Document HTML is never executed, Mermaid uses strict security mode, and diagrams are limited to 50,000 characters. Local images inside the document's directory are supported. External images are shown as placeholders rather than fetched automatically. Remote links open only on an explicit click. VS Code Remote can run the extension on its extension host; vscode.dev/browser-only hosting is not included in this version.
+All scripts, the YAML editor/parser, editor dependencies and Mermaid rendering are bundled. No CDN, server, Rust binary, or API key is needed at runtime. Document HTML is never executed, Mermaid uses strict security mode, and diagrams are limited to 50,000 characters. Local images inside the document's directory are supported. External images are shown as placeholders rather than fetched automatically. Remote links open only on an explicit click. VS Code Remote can run the extension on its extension host; vscode.dev/browser-only hosting is not included in this version.
 
 ## Development and verification
 
@@ -106,7 +108,7 @@ npm run package
 
 `test:ui` uses the production webview bundle and CSP with a document bridge harness. It covers text/task/table editing, save/source actions, Mermaid rendering and errors, external edits, conflicts, undo/redo, synthetic Korean composition events, and narrow editor panes. Real OS IME candidate-window behavior still requires a manual check.
 
-`test:host` launches an isolated VS Code profile, drives the actual extension with Playwright over a temporary local debugging port, and verifies the file on disk. It checks opening without writes, frontmatter preservation, relative/absolute links and cross-document anchors, Mermaid, editing, save, undo/redo, tasks, external file updates, and source switching. On macOS it uses an installed VS Code; otherwise it downloads the stable test build. Set `VSCODE_EXECUTABLE` to choose another build. Linux CI needs `xvfb-run -a npm run test:host`. The test closes its process and removes its temporary profile. A screenshot is written to `../../dist/vscode-editor-preview.png`.
+`test:host` launches an isolated VS Code profile, drives the actual extension with Playwright over a temporary local debugging port, and verifies the file on disk. It checks opening without writes, YAML editing and byte preservation, metadata save/undo/redo, Mermaid zoom without document changes, relative/absolute links and cross-document anchors, editing, tasks, external file updates, and source switching. On macOS it uses an installed VS Code; otherwise it downloads the stable test build. Set `VSCODE_EXECUTABLE` to choose another build. Linux CI needs `xvfb-run -a npm run test:host`. The test closes its process and removes its temporary profile. A screenshot is written to `../../dist/vscode-editor-preview.png`.
 
 Manual follow-ups: real Korean IME composition, accessibility with a screen reader, very large documents, and remote extension hosts.
 
@@ -121,5 +123,7 @@ With FFmpeg available, run `npm run build && npm run capture`. This opens an iso
 - `src/webview/sync.ts`: serialized edits, version handling and draft conflicts.
 - `src/webview/markdown.ts`: semantic checks and unchanged-block preservation.
 - `src/webview/views.ts`: Mermaid, task and image node views.
+- `src/webview/diagram-zoom.ts`: per-diagram zoom, fit, keyboard/wheel controls and dragging.
+- `src/webview/frontmatter.ts`: bundled CodeMirror YAML editor and diagnostics.
 
 MIT. Bundled dependency license notices are included alongside the distribution assets.

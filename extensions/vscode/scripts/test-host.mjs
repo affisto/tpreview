@@ -85,6 +85,24 @@ try {
   await expect.poll(() => readFile(file, 'utf8')).toContain('- [x] Verify save');
   if (!(await readFile(file, 'utf8')).startsWith(metadata)) throw new Error('Editing the body changed frontmatter');
   await expect(frame.locator('#metadata')).toContainText('한글 metadata');
+  const beforeYaml = await readFile(file, 'utf8');
+  const yaml = frame.getByRole('textbox', { name: 'YAML frontmatter', exact: true });
+  await yaml.fill('title: "수정된 YAML"\nsummary: |\n  Preserve this field.\ntags: [reviewed, ready]');
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
+  const updatedMetadata = '---\ntitle: "수정된 YAML"\nsummary: |\n  Preserve this field.\ntags: [reviewed, ready]\n---\n\n';
+  await expect.poll(() => readFile(file, 'utf8')).toBe(updatedMetadata + beforeYaml.slice(metadata.length));
+  await frame.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(yaml).toContainText('한글 metadata');
+  await frame.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(yaml).toContainText('수정된 YAML');
+  const diagram = frame.locator('.diagram-preview svg');
+  const width = await diagram.evaluate(el => el.getBoundingClientRect().width);
+  await frame.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  await expect.poll(() => diagram.evaluate(el => el.getBoundingClientRect().width)).toBeGreaterThan(width);
+  await frame.getByRole('button', { name: 'Reset diagram zoom to 100%', exact: true }).click();
+  await expect.poll(() => diagram.evaluate(el => el.getBoundingClientRect().width)).toBeCloseTo(width, 0);
+  await frame.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.poll(() => readFile(file, 'utf8')).toBe(updatedMetadata + beforeYaml.slice(metadata.length));
   await mkdir('../../dist', { recursive: true });
   await page.screenshot({ path: '../../dist/vscode-editor-preview.png' });
   await frame.getByRole('link', { name: 'Next document', exact: true }).click();
@@ -106,7 +124,7 @@ try {
   await expect(frame.locator('.ProseMirror h1')).toHaveText('Changed externally', { timeout: 15_000 });
   await frame.getByRole('button', { name: '</> Source' }).click();
   await expect(page.locator('.monaco-editor textarea').first()).toBeAttached();
-  console.log('PASS: real VS Code preserves frontmatter; relative/absolute links and anchors, Mermaid, edits, save, undo/redo, tasks, external updates and source switching work.');
+  console.log('PASS: real VS Code edits YAML frontmatter, saves and undoes/redoes metadata, zooms Mermaid without changing Markdown, and retains navigation and editing behavior.');
   }
 } catch (error) {
   await mkdir('../../dist', { recursive: true });

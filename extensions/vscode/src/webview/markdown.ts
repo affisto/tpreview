@@ -7,7 +7,7 @@ const parser = unified().use(remarkParse).use(remarkGfm);
 type Node = { type: string; position?: { start: { offset?: number }; end: { offset?: number } }; children?: Node[]; [key: string]: unknown };
 const supported = new Set(['root', 'paragraph', 'text', 'heading', 'emphasis', 'strong', 'delete', 'inlineCode', 'code', 'blockquote', 'list', 'listItem', 'link', 'image', 'thematicBreak', 'break', 'table', 'tableRow', 'tableCell']);
 function nodes(source: string): Node[] { return parser.parse(source).children as Node[]; }
-export function splitFrontmatter(source: string): { prefix: string; body: string; metadata: string; format?: string } {
+export function splitFrontmatter(source: string): { prefix: string; body: string; metadata: string; format?: string; metadataStart?: number; metadataEnd?: number } {
   const bom = source.startsWith('\uFEFF') ? '\uFEFF' : '';
   const text = source.slice(bom.length);
   const first = /^(---|\+\+\+)[\t ]*\r?\n/.exec(text);
@@ -17,10 +17,26 @@ export function splitFrontmatter(source: string): { prefix: string; body: string
     const end = close.exec(text);
     if (end) {
       const offset = bom.length + end.index + end[0].length;
-      return { prefix: source.slice(0, offset), body: source.slice(offset), metadata: text.slice(first[0].length, end.index), format: first[1] === '---' ? 'YAML' : 'TOML' };
+      return { prefix: source.slice(0, offset), body: source.slice(offset), metadata: text.slice(first[0].length, end.index), format: first[1] === '---' ? 'YAML' : 'TOML', metadataStart: bom.length + first[0].length, metadataEnd: bom.length + end.index };
     }
   }
   return { prefix: bom, body: text, metadata: '' };
+}
+/** Edit only the YAML slice; keep delimiters, comments, body spelling and BOM intact. */
+export function replaceYamlFrontmatter(source: string, metadata: string, allowDelimiters = false): string {
+  const parts = splitFrontmatter(source);
+  if (parts.format !== 'YAML') throw new Error('This document has no YAML frontmatter.');
+  if (!allowDelimiters && /^(?:---|\.\.\.)[\t ]*\r?$/m.test(metadata)) throw new Error('The --- and ... delimiters are managed automatically. Enter only the YAML fields here.');
+  const eol = parts.prefix.includes('\r\n') ? '\r\n' : '\n';
+  let content = metadata.replace(/\r?\n/g, eol);
+  if (content && !content.endsWith(eol)) content += eol;
+  return source.slice(0, parts.metadataStart) + content + source.slice(parts.metadataEnd);
+}
+export function addYamlFrontmatter(source: string): string {
+  const parts = splitFrontmatter(source);
+  if (parts.format) return source;
+  const eol = source.includes('\r\n') ? '\r\n' : '\n';
+  return parts.prefix + ['---', '', '---', '', ''].join(eol) + parts.body;
 }
 export function withFrontmatter(original: string, body: string): string {
   const { prefix } = splitFrontmatter(original);

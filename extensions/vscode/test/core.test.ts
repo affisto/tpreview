@@ -93,3 +93,20 @@ test('rejected edits retain the draft and clean external changes replace the vie
   sync.edit('BC'); sync.acknowledge(sync.pending!.id, false, { text: 'other', version: 3 });
   assert.ok(sync.conflict); assert.equal(sync.draft, 'BC');
 });
+
+test('YAML editing preserves delimiters, body bytes, BOM and line endings', async () => {
+  const { replaceYamlFrontmatter, addYamlFrontmatter } = await import('../src/webview/markdown');
+  const { yamlDiagnostics } = await import('../src/webview/frontmatter');
+  const body = '\r\n# Body #\r\n\r\n* original list spelling\r\n';
+  const raw = '\uFEFF---  \r\n# keep comment\r\ntitle: Before\r\n...\r\n' + body;
+  const edited = replaceYamlFrontmatter(raw, '# keep comment\ntitle: After\nsummary: |\n  한글\n  Second line');
+  assert.equal(edited, '\uFEFF---  \r\n# keep comment\r\ntitle: After\r\nsummary: |\r\n  한글\r\n  Second line\r\n...\r\n' + body);
+  assert.equal(replaceYamlFrontmatter(raw, ''), '\uFEFF---  \r\n...\r\n' + body);
+  assert.throws(() => replaceYamlFrontmatter(raw, 'title: One\n---\ntitle: Two'), /delimiters/);
+  assert.throws(() => replaceYamlFrontmatter(raw, 'title: One\n...\n'), /delimiters/);
+  assert.equal(addYamlFrontmatter(raw), raw);
+  assert.equal(addYamlFrontmatter('\uFEFF# New\r\n'), '\uFEFF---\r\n\r\n---\r\n\r\n# New\r\n');
+  assert.equal(yamlDiagnostics('title: 한글\nsummary: |\n  One\n  Two\n').length, 0);
+  assert.ok(yamlDiagnostics('tags: [unfinished').some(d => d.severity === 'error'));
+  assert.ok(yamlDiagnostics('title: A\ntitle: B\n').some(d => d.severity === 'error'));
+});

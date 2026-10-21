@@ -3,6 +3,7 @@ import { codeBlockSchema, imageSchema } from '@milkdown/kit/preset/commonmark';
 import { extendListItemSchemaForTask } from '@milkdown/kit/preset/gfm';
 import type { Node } from '@milkdown/kit/prose/model';
 import { Selection } from '@milkdown/kit/prose/state';
+import { DiagramZoom } from './diagram-zoom';
 let diagramId = 0;
 let engine: Promise<typeof import('mermaid')['default']> | undefined;
 function mermaid() {
@@ -25,8 +26,9 @@ export const codeView = $view(codeBlockSchema.node, () => (initial, view, getPos
   const contentDOM = pre;
   contentDOM.spellcheck = false;
   const preview = document.createElement('div'); preview.className = 'diagram-preview'; preview.contentEditable = 'false';
+  const zoom = new DiagramZoom(preview);
   const error = document.createElement('p'); error.className = 'diagram-error'; error.contentEditable = 'false'; error.hidden = true;
-  controls.append(label, toggle); dom.append(controls, pre, preview, error);
+  controls.append(label, zoom.controls, toggle); dom.append(controls, pre, preview, error);
   let editing = false, previousSource = '';
   const setEditing = (value: boolean) => {
     editing = value;
@@ -38,13 +40,14 @@ export const codeView = $view(codeBlockSchema.node, () => (initial, view, getPos
   preview.addEventListener('dblclick', () => setEditing(true));
   async function render(source: string, id: number) {
     try {
-      if (!source.trim()) { preview.textContent = 'Write a Mermaid diagram to preview it.'; return; }
+      if (!source.trim()) { preview.textContent = 'Write a Mermaid diagram to preview it.'; zoom.rendered(); error.hidden = true; return; }
       const m = await mermaid();
       if (destroyed || id !== generation) return;
       const { svg } = await m.render(`tpreview-diagram-${++diagramId}`, source);
       if (destroyed || id !== generation) return;
       // Mermaid's strict mode sanitizes generated SVG; document HTML is never inserted.
       preview.innerHTML = svg;
+      zoom.rendered();
       error.hidden = true;
     } catch {
       if (destroyed || id !== generation) return;
@@ -55,7 +58,7 @@ export const codeView = $view(codeBlockSchema.node, () => (initial, view, getPos
   function refresh() {
     const isDiagram = node.attrs.language === 'mermaid';
     label.textContent = node.attrs.language || 'Code';
-    toggle.hidden = !isDiagram; preview.hidden = !isDiagram;
+    toggle.hidden = !isDiagram; preview.hidden = !isDiagram; zoom.controls.hidden = !isDiagram;
     pre.hidden = isDiagram && !editing;
     if (isDiagram && (node.textContent !== previousSource || !generation)) {
       previousSource = node.textContent;
@@ -73,7 +76,7 @@ export const codeView = $view(codeBlockSchema.node, () => (initial, view, getPos
       if (mutation.type === 'attributes' && mutation.target === pre) return true;
       return mutation.type !== 'selection' && !contentDOM.contains(mutation.target);
     },
-    destroy() { destroyed = true; ++generation; clearTimeout(timer); },
+    destroy() { destroyed = true; ++generation; clearTimeout(timer); zoom.destroy(); },
   };
 });
 

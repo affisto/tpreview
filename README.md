@@ -175,13 +175,13 @@ The optional [MD Visual Editor extension](extensions/vscode/README.md) adds WYSI
 
 [![MD Visual Editor — click to watch the walkthrough](https://raw.githubusercontent.com/affisto/tpreview/b0e2915/docs/media/md-visual-editor/01-overview.png)](https://github.com/affisto/tpreview/releases/download/extension-v0.1.1/md-visual-editor-walkthrough.mp4)
 
-**Install on another computer:** download the [VSIX package](https://github.com/affisto/tpreview/releases/download/extension-v0.1.3/tpreview-markdown-0.1.3.vsix), then use **Extensions → … → Install from VSIX…** in VS Code. No Node.js or Rust installation is needed. To build it yourself:
+**Install on another computer:** download the [VSIX package](https://github.com/affisto/tpreview/releases/download/extension-v0.1.4/tpreview-markdown-0.1.4.vsix), then use **Extensions → … → Install from VSIX…** in VS Code. No Node.js or Rust installation is needed. To build it yourself:
 
 ```sh
 cd extensions/vscode
 npm ci
 npm run package
-code --install-extension ../../dist/tpreview-markdown-0.1.3.vsix
+code --install-extension ../../dist/tpreview-markdown-0.1.4.vsix
 ```
 
 Then run **MD Visual Editor: Open Visual Markdown Editor** for a Markdown file. See the extension README for source-preservation limits and testing instructions. VSIX downloads are available through GitHub Releases.

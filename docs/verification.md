@@ -1,6 +1,15 @@
 # Verification and compatibility
 
-Updated: 2026-10-20. Local host: macOS / Apple Silicon (arm64), Rust 1.92.0. This document distinguishes executable tests from protocol simulation and real-terminal visual checks.
+Updated: 2026-10-21. Local host: macOS / Apple Silicon (arm64), Rust 1.92.0. This document distinguishes executable tests from protocol simulation and real-terminal visual checks.
+
+## VS Code YAML editing and Mermaid zoom (2026-10-21)
+
+MD Visual Editor 0.1.4 passed a clean dependency install, TypeScript checking, **12 unit tests**, **27 Playwright UI tests**, the real VS Code host test and VSIX packaging.
+
+- The embedded YAML editor saves directly through the document bridge, preserves body bytes/BOM/CRLF/comments/delimiters, and participates in document undo/redo. UI checks cover syntax diagnostics, indentation, adding metadata, concurrent body edits, pending saves, external-edit conflicts, invalid delimiter drafts and synthetic Korean composition. Real OS IME candidate windows still require manual verification.
+- Mermaid controls change SVG dimensions without Markdown writes: per-diagram zoom, 100% reset, fit-to-width, modifier-wheel zoom, dragging and retained zoom through valid/invalid source edits.
+- The actual VS Code test edits YAML, saves and undoes/redoes it, checks the exact file on disk, and verifies diagram zoom leaves the Markdown unchanged. `dist/vscode-editor-preview.png` shows the embedded editor and zoom controls.
+- The YAML editor, syntax parser and diagnostics are bundled for offline use. No external YAML extension or CDN is required.
 
 ## Navigation and frontmatter release (2026-10-20)
 

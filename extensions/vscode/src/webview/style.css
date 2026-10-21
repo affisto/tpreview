@@ -45,10 +45,14 @@ code { background: var(--surface); padding: .14em .3em; border-radius: 3px; }
 pre { margin: 0; padding: 16px; overflow-x: auto; white-space: pre; tab-size: 4; line-height: 1.6; }
 pre code { padding: 0; font-size: inherit; background: transparent; }
 .code-block { margin: 1.4em 0; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); overflow: hidden; }
-.code-controls { padding: 5px 12px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
+.code-controls { padding: 5px 12px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
 .code-controls button { min-height: 24px; font-size: 12px; }
-.diagram-preview { padding: 22px; text-align: center; overflow-x: auto; background: var(--paper); }
-.diagram-preview svg { max-width: 100%; height: auto; }
+.diagram-preview { padding: 22px; overflow: auto; max-height: 65vh; background: var(--paper); cursor: grab; overscroll-behavior: contain; }
+.diagram-preview svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+.diagram-preview:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.diagram-preview.panning { cursor: grabbing; user-select: none; }
+.diagram-zoom { display: flex; align-items: center; gap: 2px; margin-left: auto; font-variant-numeric: tabular-nums; }
+.diagram-zoom button { padding: 3px 6px; }
 .diagram-error { color: var(--vscode-errorForeground, #f48771); padding: 0 16px; font-size: 13px; }
 .ProseMirror table { border-collapse: collapse; width: 100%; margin: 1.3em 0; table-layout: fixed; }
 .ProseMirror td, .ProseMirror th { border: 1px solid var(--line); padding: 8px 12px; min-width: 40px; vertical-align: top; position: relative; }
@@ -74,6 +78,18 @@ dialog label { display: block; margin-bottom: 10px; } dialog input { width: 100%
 #frontmatter { margin-bottom: 28px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
 #frontmatter summary { padding: 10px 14px; cursor: pointer; color: var(--muted); font-size: 13px; }
 #frontmatter pre { max-height: 280px; }
-#frontmatter button { margin: 0 8px 8px; color: var(--accent); }
+#frontmatter-source, #add-frontmatter { margin: 0 8px 8px; color: var(--accent); }
+#metadata .cm-editor { font-size: 13px; background: var(--paper); }
+#metadata .cm-scroller { font-family: var(--mono); line-height: 1.6; max-height: 320px; overflow: auto; }
+#metadata .cm-content { min-height: 80px; caret-color: var(--ink); }
+#metadata .cm-line { padding: 0 12px; }
+#metadata .cm-gutters { background: var(--surface); color: var(--muted); border-color: var(--line); }
+#metadata .cm-activeLine, #metadata .cm-activeLineGutter { background: var(--vscode-editor-lineHighlightBackground, #80808018); }
+#metadata .cm-cursor { border-left-color: var(--ink); }
+#metadata .cm-focused { outline: 1px solid var(--focus); }
+#metadata .cm-selectionBackground { background: var(--vscode-editor-selectionBackground, #264f78) !important; }
+#metadata .cm-tooltip { background: var(--surface); color: var(--ink); border-color: var(--line); }
+#yaml-status, #metadata-error { margin: 8px 14px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+#yaml-status.yaml-invalid, #metadata-error { color: var(--vscode-errorForeground, #f48771); }
 .ProseMirror a { cursor: pointer; }
 .ProseMirror :is(h1,h2,h3,h4,h5,h6) { scroll-margin-top: 100px; }

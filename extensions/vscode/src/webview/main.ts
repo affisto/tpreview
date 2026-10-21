@@ -9,12 +9,13 @@ import { Plugin } from '@milkdown/kit/prose/state';
 import { gapCursor } from '@milkdown/kit/prose/gapcursor';
 import type { ClientMessage, HostMessage } from '../protocol';
 import { DocumentSync } from './sync';
-import { reconcileMarkdown, sameMeaning, unsupportedReason, splitFrontmatter, withFrontmatter } from './markdown';
+import { reconcileMarkdown, sameMeaning, unsupportedReason, splitFrontmatter, withFrontmatter, replaceYamlFrontmatter, addYamlFrontmatter } from './markdown';
+import { FrontmatterEditor } from './frontmatter';
 import { headingSlug } from '../links';
 import { codeView, imageView, taskView } from './views';
 import './style.css';
 
-declare function acquireVsCodeApi(): { postMessage(message: ClientMessage): void; getState(): { draft?: string; base?: string; uri?: string } | undefined; setState(state: unknown): void };
+declare function acquireVsCodeApi(): { postMessage(message: ClientMessage): void; getState(): { draft?: string; base?: string; uri?: string; metadataDraft?: string } | undefined; setState(state: unknown): void };
 const vscode = acquireVsCodeApi();
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const post = (message: ClientMessage) => vscode.postMessage(message);
@@ -23,20 +24,37 @@ let editor: Editor | undefined, suppress = false, baseline = '', original = '', 
 let blocked = false, ready = false, composing = false, waitingAction: 'source' | 'save' | 'undo' | 'redo' | undefined;
 let messages = Promise.resolve();
 let pendingLink: string | undefined;
+let metadataEditor: FrontmatterEditor | undefined, metadataDraft: string | undefined;
+let metadataError = '', metadataEditable = false;
 
 function notice(message: string) { $('notice').textContent = message; $('notice').hidden = !message; }
-function persist() { vscode.setState(sync.settled ? {} : { draft: sync.draft, base: sync.current.text, uri: baseUri + name }); }
+function persist() { vscode.setState(sync.settled && metadataDraft === undefined ? {} : { draft: sync.draft, base: sync.current.text, uri: baseUri + name, metadataDraft }); }
 function state() {
-  if (sync.conflict) pendingLink = undefined;
-  $('status').textContent = sync.conflict ? 'Draft preserved · resolve conflict' : sync.pending ? 'Updating document…' : blocked ? 'Source editing available' : 'Changes applied to document';
+  if (sync.conflict) { pendingLink = undefined; waitingAction = undefined; }
+  $('status').textContent = sync.conflict ? 'Draft preserved · resolve conflict' : metadataError ? 'YAML draft kept · check delimiters' : sync.pending ? 'Updating document…' : blocked ? 'Source editing available' : 'Changes applied to document';
   $('conflict').hidden = !sync.conflict;
   ($('reload') as HTMLButtonElement).disabled = !!sync.pending;
   if (sync.conflict) { $('conflict-message').textContent = 'The file changed while you were editing. Your draft is kept below. Copy it before using the file version.'; $('draft').textContent = sync.draft; ($('draft') as HTMLTextAreaElement).value = sync.draft; }
   $('toolbar').querySelectorAll<HTMLButtonElement | HTMLSelectElement>('button, select').forEach(button => button.disabled = blocked || sync.conflict || !ready);
   editor?.action(ctx => ctx.get(editorViewCtx).setProps({ editable: () => !blocked && !sync.conflict }));
+  metadataEditor?.setDisabled(!metadataEditable || sync.conflict || !ready);
+  ($('add-frontmatter') as HTMLButtonElement).disabled = blocked || sync.conflict || !ready || composing;
+  $('metadata-error').textContent = metadataError; $('metadata-error').hidden = !metadataError;
   persist();
-  if (pendingLink !== undefined && sync.settled && !composing) { const href = pendingLink; pendingLink = undefined; post({ type: 'link', href }); }
-  if (waitingAction && sync.settled && !composing) { const type = waitingAction; waitingAction = undefined; post({ type }); }
+  if (pendingLink !== undefined && sync.settled && !composing && !metadataError) { const href = pendingLink; pendingLink = undefined; post({ type: 'link', href }); }
+  if (waitingAction && sync.settled && !composing && !metadataError) { const type = waitingAction; waitingAction = undefined; post({ type }); }
+}
+function metadataChanged(text: string, isComposing: boolean) {
+  if (suppress || !ready || sync.conflict) return;
+  metadataDraft = text;
+  if (isComposing) { persist(); return; }
+  try {
+    const next = replaceYamlFrontmatter(original, text);
+    metadataError = ''; metadataDraft = undefined; original = next;
+    if (blocked) $('raw').textContent = next;
+    sync.edit(next);
+  } catch (error) { metadataError = error instanceof Error ? error.message : 'Unable to update YAML frontmatter.'; }
+  state();
 }
 function localChanged(markdown: string) {
   if (suppress || !ready || blocked || sync.conflict || composing) return;
@@ -76,12 +94,20 @@ const transactions = $prose(ctx => new Plugin({
 
 async function load(text: string) {
   suppress = true; blocked = false; ready = false; composing = false;
+  original = text; metadataDraft = undefined; metadataError = '';
   notice('');
   const reason = unsupportedReason(text);
   const { body, metadata, format } = splitFrontmatter(text);
-  $('frontmatter').hidden = !format || !!reason;
+  metadataEditable = format === 'YAML' && text.length <= 1_000_000;
+  $('frontmatter').hidden = !format;
+  $('add-frontmatter').hidden = !!format || !!reason;
   $('frontmatter-label').textContent = `Frontmatter · ${format ?? ''}`;
-  $('metadata').textContent = metadata;
+  $('metadata').hidden = !metadataEditable; $('yaml-status').hidden = !metadataEditable;
+  $('metadata-readonly').hidden = metadataEditable; $('metadata-readonly').textContent = metadata;
+  if (metadataEditable) {
+    metadataEditor ??= new FrontmatterEditor($('metadata'), $('yaml-status'), metadataChanged, active => { composing = active; });
+    metadataEditor.setText(metadata);
+  }
   $('fallback').hidden = !reason; $('editor').hidden = !!reason;
   if (reason) {
     blocked = true; $('fallback-reason').textContent = reason; $('raw').textContent = text;
@@ -116,10 +142,16 @@ window.addEventListener('message', event => {
       const first = !sync.current.version;
       const recovery = first ? vscode.getState() : undefined;
       baseUri = message.baseUri; name = message.name; $('filename').textContent = name;
+      if (metadataDraft !== undefined && message.version >= sync.current.version && message.text !== sync.current.text) {
+        sync.draft = replaceYamlFrontmatter(original, metadataDraft, true); sync.conflict = true;
+      }
       const action = sync.receive(message);
       if (first || action === 'replace') await load(message.text);
       if (recovery?.draft && recovery.uri === baseUri + name && recovery.draft !== message.text) {
         sync.draft = recovery.draft; sync.conflict = true;
+      }
+      if (recovery?.metadataDraft !== undefined && recovery.uri === baseUri + name) {
+        sync.draft = replaceYamlFrontmatter(recovery.draft ?? message.text, recovery.metadataDraft, true); sync.conflict = true;
       }
       state();
     } else if (message.type === 'ack') {
@@ -135,6 +167,12 @@ window.addEventListener('message', event => {
 
 function hostAction(action: 'source' | 'save' | 'undo' | 'redo') {
   if (composing) { waitingAction = action; return; }
+  if (metadataError) {
+    if (action === 'undo') {
+      metadataDraft = undefined; metadataError = ''; metadataEditor?.setText(splitFrontmatter(original).metadata); state();
+    } else notice('Correct the frontmatter delimiters before continuing. Your YAML draft is kept in the editor.');
+    return;
+  }
   if (editor && !blocked && !sync.conflict) localChanged(editor.action(getMarkdown()));
   if (sync.conflict) { notice('Copy your draft and use the file version before continuing.'); return; }
   waitingAction = action; sync.flush(); state();
@@ -142,6 +180,14 @@ function hostAction(action: 'source' | 'save' | 'undo' | 'redo') {
 for (const action of ['source', 'save', 'undo', 'redo'] as const) $(action).addEventListener('click', () => hostAction(action));
 $('fallback-source').addEventListener('click', () => hostAction('source'));
 $('frontmatter-source').addEventListener('click', () => hostAction('source'));
+$('add-frontmatter').addEventListener('click', async () => {
+  if (blocked || sync.conflict || !ready || composing) return;
+  if (editor) localChanged(editor.action(getMarkdown()));
+  if (sync.conflict) return;
+  const text = addYamlFrontmatter(original);
+  sync.edit(text); await load(text); metadataEditor?.focus();
+});
+window.addEventListener('unload', () => metadataEditor?.destroy());
 $('reload').addEventListener('click', async () => { sync.reload(); await load(sync.current.text); });
 $('copy').addEventListener('click', () => {
   const draft = $('draft') as HTMLTextAreaElement; draft.focus(); draft.select();
@@ -186,7 +232,7 @@ $('editor').addEventListener('click', event => {
     event.preventDefault();
     event.stopPropagation();
     if (event.altKey) return;
-    if (composing || sync.conflict) { notice('Finish editing or resolve the draft conflict before opening a link.'); return; }
+    if (composing || sync.conflict || metadataError) { notice('Finish editing or resolve the draft conflict before opening a link.'); return; }
     if (editor && !blocked) localChanged(editor.action(getMarkdown()));
     sync.flush();
     if (!sync.settled) { pendingLink = link.getAttribute('href') ?? ''; return; }
