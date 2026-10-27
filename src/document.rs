@@ -1,7 +1,6 @@
-use crate::source::safe;
+use crate::{source::safe, table::Table};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use std::ops::Range;
-use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Kind {
@@ -21,6 +20,7 @@ pub struct Block {
     pub text: String,
     pub anchor: String,
     pub links: Vec<Link>,
+    pub table: Option<Table>,
 }
 #[derive(Debug, Clone)]
 pub struct Link {
@@ -40,6 +40,7 @@ impl Document {
                 text: safe(&input.replace("\r\n", "\n")).replace('\t', "    "),
                 anchor: "document".into(),
                 links: Vec::new(),
+                table: None,
             }],
         }
     }
@@ -53,6 +54,7 @@ impl Document {
                 text: metadata.trim_end_matches(['\r', '\n']).into(),
                 anchor: "frontmatter".into(),
                 links: Vec::new(),
+                table: None,
             });
             body
         } else {
@@ -68,6 +70,7 @@ impl Document {
         let mut code = false;
         let mut table = false;
         let mut rows: Vec<Vec<(String, Vec<Link>)>> = Vec::new();
+        let mut alignments = Vec::new();
         let mut row = Vec::new();
         let mut link_start: Option<(usize, String)> = None;
         let flush = |doc: &mut Document,
@@ -92,6 +95,7 @@ impl Document {
                 text: std::mem::take(text).trim_end_matches('\n').into(),
                 anchor,
                 links: std::mem::take(links),
+                table: None,
             });
         };
         let options =
@@ -271,7 +275,7 @@ impl Document {
                     );
                     kind = Kind::Paragraph;
                 }
-                Event::Start(Tag::Table(_)) => {
+                Event::Start(Tag::Table(alignment)) => {
                     flush(
                         &mut doc,
                         &mut text,
@@ -281,6 +285,7 @@ impl Document {
                         &mut counts,
                     );
                     table = true;
+                    alignments = alignment;
                     rows.clear();
                 }
                 Event::Start(Tag::TableCell) => {
@@ -293,63 +298,11 @@ impl Document {
                     rows.push(std::mem::take(&mut row));
                 }
                 Event::End(TagEnd::Table) => {
-                    let columns = rows.iter().map(Vec::len).max().unwrap_or(0);
-                    let widths: Vec<_> = (0..columns)
-                        .map(|i| {
-                            rows.iter()
-                                .filter_map(|r| r.get(i))
-                                .map(|(s, _)| s.width())
-                                .max()
-                                .unwrap_or(0)
-                        })
-                        .collect();
-                    let aligned_size = widths
-                        .iter()
-                        .map(|w| w + 5)
-                        .sum::<usize>()
-                        .saturating_mul(rows.len() + 1);
-                    if aligned_size > 8 * 1024 * 1024 {
-                        text.push_str(
-                            "[Table too large to align; complete cell contents follow]\n",
-                        );
-                        for r in &rows {
-                            for (i, (cell, cell_links)) in r.iter().enumerate() {
-                                if i > 0 {
-                                    text.push_str(" | ");
-                                }
-                                append_cell(&mut text, &mut links, cell, cell_links);
-                            }
-                            text.push('\n');
-                        }
-                    } else {
-                        for (n, r) in rows.iter().enumerate() {
-                            text.push('│');
-                            for (i, w) in widths.iter().enumerate() {
-                                text.push(' ');
-                                let cell = if let Some((cell, cell_links)) = r.get(i) {
-                                    append_cell(&mut text, &mut links, cell, cell_links);
-                                    cell.as_str()
-                                } else {
-                                    ""
-                                };
-                                text.push_str(&format!(
-                                    "{} │",
-                                    " ".repeat(w.saturating_sub(cell.width()))
-                                ));
-                            }
-                            text.push('\n');
-                            if n == 0 {
-                                text.push_str(
-                                    &widths
-                                        .iter()
-                                        .map(|w| "─".repeat(w + 2))
-                                        .collect::<Vec<_>>()
-                                        .join("┼"),
-                                );
-                                text.push('\n');
-                            }
-                        }
-                    }
+                    let model = Table {
+                        rows: std::mem::take(&mut rows),
+                        alignments: std::mem::take(&mut alignments),
+                    };
+                    (text, links) = model.document_text();
                     kind = Kind::Table;
                     flush(
                         &mut doc,
@@ -359,10 +312,22 @@ impl Document {
                         &section,
                         &mut counts,
                     );
+                    doc.blocks.last_mut().unwrap().table = Some(model);
                     table = false;
                     kind = Kind::Paragraph;
                 }
-                Event::Html(s) | Event::InlineHtml(s) => text.push_str(&s),
+                Event::Html(s) | Event::InlineHtml(s) => {
+                    if table
+                        && matches!(
+                            s.trim().to_ascii_lowercase().as_str(),
+                            "<br>" | "<br/>" | "<br />"
+                        )
+                    {
+                        text.push('\n');
+                    } else {
+                        text.push_str(&s);
+                    }
+                }
                 _ => {}
             }
         }
@@ -385,15 +350,6 @@ impl Document {
             .collect()
     }
 }
-fn append_cell(text: &mut String, links: &mut Vec<Link>, cell: &str, cell_links: &[Link]) {
-    let offset = text.len();
-    links.extend(cell_links.iter().cloned().map(|mut link| {
-        link.range = link.range.start + offset..link.range.end + offset;
-        link
-    }));
-    text.push_str(cell);
-}
-
 /// Recognize only a closed metadata block at the beginning of the document.
 /// Values stay literal, including multiline YAML, comments and unknown fields.
 fn frontmatter(input: &str) -> Option<(&'static str, &str, &str)> {

@@ -1,6 +1,16 @@
 # Verification and compatibility
 
-Updated: 2026-10-21. Local host: macOS / Apple Silicon (arm64), Rust 1.92.0. This document distinguishes executable tests from protocol simulation and real-terminal visual checks.
+Updated: 2026-10-28. Local host: macOS / Apple Silicon (arm64), Rust 1.92.0. This document distinguishes executable tests from protocol simulation and real-terminal visual checks.
+
+## Terminal tables and additional Mermaid families (2026-10-28)
+
+- CLI **0.2.0** passed formatting, Clippy and all **47 Rust integration tests**: 30 existing core tests, 10 Mermaid tests, and 7 table tests. All 9 installer tests passed, including the new version pins and native bundle validation.
+- Tables were checked for connected borders, left/center/right alignment, complete wrapped CJK/emoji/combining text, explicit cell breaks, repeated link labels, resize/pan behavior, narrow views and bounded padding. An actual isolated tmux session at 52 columns showed the complete wrapped table in `examples/rendering.md`.
+- ER tests cover entities, attributes, PK/FK/UK, comments, cardinalities, aliases, CJK labels, direction/frontmatter, malformed input, parser panic containment, model limits and self/cyclic/parallel relationships. Class/state fixtures include strict rejection of unfinished blocks. A separate-process test renders all three new families under the actual worker resource limits and checks ER PNG bytes and dimensions.
+- Actual ER worker PNG output was generated and visually inspected: CJK alias, attribute compartments, keys and relationship endpoints were visible. This verifies rasterization, not a live terminal graphics compositor.
+- Real PTY and isolated tmux integration passed, including fallback, file/link navigation, keyboard/mouse, resizing, watch/last-good behavior and terminal restoration. Remaining Ghostty/Kitty/SSH graphics checks below still apply.
+
+Run `tpreview examples/rendering.md` to inspect the new table and ER/class/state examples. See [syntax and engine limits](mermaid.md) for unsupported families and ER token/cycle limitations.
 
 ## VS Code YAML editing and Mermaid zoom (2026-10-21)
 
@@ -69,7 +79,7 @@ cargo build --locked --release
 1. Read the flowchart and request/reply sequence. Use Tab/Enter for detail; Esc returns.
 2. Press `/`, type `Preview`, Enter; press `n` and `N`.
 3. Use `t` and Enter to jump to Reading tools. Select the next-document link with Tab, Enter, then `b`.
-4. Use `f` to choose another example; use arrows horizontally on the long table and Rust code. Resize to 32 columns.
+4. Use `f` to choose another example; use arrows horizontally on Rust code. Resize to 32 columns and confirm table cells wrap, or stack when columns cannot fit.
 5. In a second shell, copy the example into a temporary directory and watch that copy. Change a diagram label; confirm the new label appears without manual reload.
 6. Remove a closing bracket from a previously valid flowchart. Confirm the previous-result notice, current source/error and responsive keys. Restore the bracket.
 7. Perform several rapid writes followed by rename-over replacement; confirm the last document wins. Delete/recreate the file; the TUI must remain open.

@@ -59,6 +59,7 @@ impl Layout {
         let mut result = Self::default();
         for (i, block) in doc.blocks.iter().enumerate() {
             result.starts.push(result.rows.len());
+            let mut table_links = Vec::new();
             let mut add = |line: Line<'static>, wide: bool, img: Option<(usize, usize, usize)>| {
                 result.rows.push(Row {
                     line,
@@ -175,12 +176,46 @@ impl Layout {
                     add(Line::styled("└", Style::default().fg(MUTED)), true, None);
                 }
                 Kind::Table => {
-                    for line in block.text.lines() {
-                        add(
-                            Line::styled(line.to_owned(), Style::default().fg(INK)),
-                            true,
-                            None,
-                        );
+                    if let Some(table) = &block.table {
+                        for row in table.render(Some(width)) {
+                            let mut spans = Vec::new();
+                            let mut links = Vec::new();
+                            let mut cursor = 0;
+                            for (range, index) in &row.links {
+                                spans.push(Span::raw(row.text[cursor..range.start].to_owned()));
+                                spans.push(Span::styled(
+                                    row.text[range.clone()].to_owned(),
+                                    Style::default()
+                                        .fg(ACCENT)
+                                        .add_modifier(Modifier::UNDERLINED),
+                                ));
+                                links.push((
+                                    row.text[..range.start].width()..row.text[..range.end].width(),
+                                    *index,
+                                ));
+                                cursor = range.end;
+                            }
+                            spans.push(Span::raw(row.text[cursor..].to_owned()));
+                            let style = if row.header {
+                                Style::default().fg(INK).add_modifier(Modifier::BOLD)
+                            } else {
+                                Style::default().fg(INK)
+                            };
+                            add(
+                                Line::from(spans).style(style),
+                                row.text.width() > width,
+                                None,
+                            );
+                            table_links.push(links);
+                        }
+                    } else {
+                        for line in block.text.lines() {
+                            add(
+                                Line::styled(line.to_owned(), Style::default().fg(INK)),
+                                true,
+                                None,
+                            );
+                        }
                     }
                 }
                 Kind::Rule => add(
@@ -207,7 +242,10 @@ impl Layout {
                 }
             }
             add(Line::raw(""), false, None);
-            if !block.links.is_empty() {
+            for (row, links) in result.rows[result.starts[i]..].iter_mut().zip(table_links) {
+                row.links = links;
+            }
+            if !block.links.is_empty() && block.table.is_none() {
                 let prefix = match block.kind {
                     Kind::Heading(level) => format!("{} ", "#".repeat(level as usize)),
                     Kind::Quote => "│ ".into(),

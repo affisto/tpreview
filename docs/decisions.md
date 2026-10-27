@@ -11,7 +11,8 @@ Official repository/docs and the actual crates downloaded by Cargo were inspecte
 | TUI | Ratatui 0.30.2 | MIT; maintained [Ratatui project](https://ratatui.rs/) | Native terminal buffer/layout; no GUI or daemon |
 | Terminal mode/output | Crossterm 0.29.0 | MIT; [official event documentation](https://docs.rs/crossterm/0.29.0/crossterm/event/index.html) | Raw mode and alternate screen. One custom `/dev/tty` input owner prevents probe replies competing with stdin or keyboard readers |
 | Markdown model | pulldown-cmark 0.13.4 | MIT; [CommonMark parser](https://github.com/pulldown-cmark/pulldown-cmark) | Parser event stream is transformed into typed blocks, links and heading identities. Mermaid fences come from parsed events, not Markdown regexes |
-| Mermaid | mmdflux 2.6.1, default features off | MIT; [upstream implementation and tests](https://github.com/kevinswiber/mmdflux) | Shared parser/layout engine for text and SVG, including sequence timelines. Only flowchart and sequence are enabled by this application |
+| Mermaid flowchart/sequence/class/state | mmdflux 2.6.1, default features off | MIT; [upstream implementation and tests](https://github.com/kevinswiber/mmdflux) | Shared parser/layout engine for text and SVG, including sequence timelines |
+| Mermaid ER and strict class/state validation | Merman 0.7.0-alpha.1, `ascii` and `render` features | MIT or Apache-2.0; [upstream implementation](https://github.com/Latias94/merman) | Typed native parser, Unicode text and resvg-safe SVG; no browser/runtime installation. Pinned prerelease supports the existing Rust 1.92 toolchain. Known token and cyclic text layout limits are documented and tested |
 | Rasterization | resvg/usvg 0.45.1 | MIT or Apache-2.0; [Linebender repository](https://github.com/linebender/resvg) | Pure Rust SVG-to-PNG path; no Chrome/Cairo. Local font fallback. Image URL/data resolvers disabled |
 | Images | Narrow direct implementation of [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) | Protocol specification; application code MIT | Direct PNG payloads work without shared filesystem access. Capability ACK plus cell metrics required. Explicit crops/owned IDs. No Sixel/iTerm2 claims |
 | File watching | notify 8.2.0 | CC0-1.0; [notify-rs](https://github.com/notify-rs/notify) | Native FSEvents/inotify, parent-directory watch for rename-over writes, plus periodic reconciliation |
@@ -19,6 +20,8 @@ Official repository/docs and the actual crates downloaded by Cargo were inspecte
 | Syntax highlighting | syntect 5.3.0, `default-fancy` | MIT; [syntect](https://github.com/trishume/syntect) | Bundled syntax definitions; Rust regex backend avoids a native Oniguruma requirement. Large blocks fall back to plain code |
 
 The selected upstreams had active public repositories, documentation, tests and released crates at inspection. mmdflux is still a fast-moving implementation, not the reference Mermaid JavaScript renderer: pinning exactly 2.6.1 and running conformance fixtures is intentional. Cargo.lock fixes the complete dependency graph. Upgrade the engine only together with the syntax and visual regression checks.
+
+The October 2026 rendering fix adds the second native engine because mmdflux does not implement ER. Parser failures stay visible and retain the previous valid diagram; explicit model limits still precede layout. Tables now retain structured cells and link identities through viewport layout, so wrapping and Markdown alignment do not depend on parsing already-padded text.
 
 ## Alternatives evaluated
 

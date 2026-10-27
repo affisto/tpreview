@@ -363,7 +363,7 @@ impl Capabilities {
     }
     pub fn report(&self) -> String {
         format!(
-            "tpreview {}\nstdout TTY: {}\nTERM: {}\ntmux: {}\nbackend: {}\nprobe: {}\ncell pixels: {} × {}{}\nMermaid: mmdflux 2.6.1 (flowchart, sequence); resvg 0.45\nfonts: bundled Noto Sans; local system fallback; --font adds TTF/OTF\nterminal font: cannot be queried; CJK/emoji width depends on terminal settings\nnetwork resources: disabled\n",
+            "tpreview {}\nstdout TTY: {}\nTERM: {}\ntmux: {}\nbackend: {}\nprobe: {}\ncell pixels: {} × {}{}\nMermaid: mmdflux 2.6.1 (flowchart, sequence, class, state); Merman 0.7.0-alpha.1 (ER); resvg 0.45\nfonts: bundled Noto Sans; local system fallback; --font adds TTF/OTF\nterminal font: cannot be queried; CJK/emoji width depends on terminal settings\nnetwork resources: disabled\n",
             env!("CARGO_PKG_VERSION"),
             io::stdout().is_terminal(),
             safe(&std::env::var("TERM").unwrap_or_default()),

@@ -8,7 +8,7 @@ tpreview --watch docs/design.md
 
 `tpreview` is a native Rust CLI/TUI for macOS and Linux. The application needs **no Node.js, Python, browser, Mermaid CLI, server, or API key**. Mermaid parsing, layout, text rendering and PNG generation are included in the executable. Documents work offline.
 
-This is an early release. **Flowcharts and sequence diagrams** are the supported Mermaid families. Text rendering is the safe default in tmux. Direct Kitty-compatible image rendering is implemented and protocol-tested; actual Ghostty/Kitty display and SSH image transport still require manual validation. See the [compatibility and test record](docs/verification.md).
+This is an early release. **Flowcharts, sequence, class, state and entity relationship (ER) diagrams** are the supported Mermaid families. Text rendering is the safe default in tmux. Direct Kitty-compatible image rendering is implemented and protocol-tested; actual Ghostty/Kitty display and SSH image transport still require manual validation. See the [compatibility and test record](docs/verification.md).
 
 ## Install
 
@@ -37,9 +37,9 @@ tpreview --watch README.md
 Choose an install directory or pin a version:
 
 ```sh
-curl -fsSL https://github.com/affisto/tpreview/releases/download/v0.1.2/install.sh | sh -s -- --bin-dir "$HOME/bin"
+curl -fsSL https://github.com/affisto/tpreview/releases/download/v0.2.0/install.sh | sh -s -- --bin-dir "$HOME/bin"
 # An installer can also select a specific compatible release:
-curl -fsSL https://github.com/affisto/tpreview/releases/latest/download/install.sh | sh -s -- --version v0.1.2
+curl -fsSL https://github.com/affisto/tpreview/releases/latest/download/install.sh | sh -s -- --version v0.2.0
 ```
 
 `TPREVIEW_INSTALL_DIR`, `TPREVIEW_VERSION` and `TPREVIEW_DOWNLOADER` are equivalent environment options for the installer. Run `sh install.sh --help` after downloading the script for all options. The script never edits shell profiles, uses sudo or removes macOS quarantine settings. Failed downloads/checksums/version checks leave an existing executable intact. Re-running installs/upgrades the selected version.
@@ -105,7 +105,7 @@ The executable name is **tpreview**; the initial working name `mdview` is not in
 
 ## Read and navigate
 
-Headings, paragraphs, nested lists, tasks, block quotes, fenced code, syntax highlighting, tables, links, rules and Mermaid blocks are displayed. Prose reflows at the current width. Code, tables and text diagrams preserve their columns and scroll horizontally. Korean, Japanese and combining/emoji graphemes use Unicode display widths.
+Headings, paragraphs, nested lists, tasks, block quotes, fenced code, syntax highlighting, tables, links, rules and Mermaid blocks are displayed. Prose and table cells reflow at the current width. Tables have connected borders, bold headers, Markdown left/center/right alignment, and support cell line breaks with `<br>`. Narrow screens stack cells when columns cannot fit. Code and text diagrams preserve their columns and scroll horizontally. Korean, Japanese and combining/emoji graphemes use Unicode display widths.
 
 | Key | Action |
 | --- | --- |
@@ -152,6 +152,8 @@ Unchanged diagrams reuse an in-memory cache. During incomplete edits, an earlier
 Reading position follows an unchanged block, then its heading/block identity when possible. The renderer runs in a disposable copy of this same executable, off the UI thread. Each result carries a document generation and source identity; obsolete work is killed and cannot overwrite newer text.
 
 See [supported syntax and limits](docs/mermaid.md), [technical decisions](docs/decisions.md), and [tests/manual checks](docs/verification.md).
+
+Try `tpreview examples/rendering.md` for wrapped tables and ER/class/state examples.
 
 ## Fonts and images
 

@@ -86,7 +86,7 @@ pub fn worker_main() -> Result<()> {
         },
         Err(e) => Response {
             diagram: None,
-            error: Some(e.to_string()),
+            error: Some(format!("{e:#}")),
         },
     };
     serde_json::to_writer(std::io::stdout(), &response)?;

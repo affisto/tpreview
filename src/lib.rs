@@ -5,6 +5,7 @@ pub mod graphics;
 pub mod layout;
 pub mod mermaid;
 pub mod source;
+pub mod table;
 pub mod terminal;
 pub mod ui;
 pub mod watch;

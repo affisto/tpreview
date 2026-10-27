@@ -23,8 +23,8 @@ The `Build and verify` Actions workflow produces macOS/Linux bundles for ARM64 a
 
    ```sh
    git push origin main
-   git tag v0.1.2
-   git push origin v0.1.2
+   git tag v0.2.0
+   git push origin v0.2.0
    ```
 
 4. Watch the **tag** run in Actions. It checks formatting, Clippy, Rust tests, release builds, real PTY behavior, and Linux tmux integration. Installer tests run on Linux and macOS.
@@ -34,7 +34,7 @@ Publishing uses the workflow's `GITHUB_TOKEN` with `contents: write` only in the
 
 A failed upload leaves a draft, which can be retried by re-running the failed job. Published bundles are not overwritten by retries; changes require a new version tag. A manual workflow run against an existing tag can also complete that tag's release. Do not move an already-published tag.
 
-Tags containing `-` (for example `v0.2.0-rc.1`) publish as prereleases and do not become `latest`. Plain version tags such as `v0.1.2` publish as regular early 0.x releases and become `latest`; this does not expand the documented terminal/image compatibility claims.
+Tags containing `-` (for example `v0.2.0-rc.1`) publish as prereleases and do not become `latest`. Plain version tags such as `v0.2.0` publish as regular early 0.x releases and become `latest`; this does not expand the documented terminal/image compatibility claims.
 
 ## Release assets
 

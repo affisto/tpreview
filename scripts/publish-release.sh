@@ -14,7 +14,9 @@ fi
 notes=$(mktemp)
 trap 'rm -f "$notes"' 0
 cat > "$notes" <<NOTES
-Offline Markdown and Mermaid terminal reader. This release improves file-panel selection with Vim keys and mouse clicks, opens document links and browser URLs, and displays YAML/TOML frontmatter. Local Markdown links support relative/absolute paths and heading fragments; other UTF-8 files are shown as text.
+Offline Markdown and Mermaid terminal reader. This release adds ER, class and state diagrams alongside flowcharts and sequence diagrams. Tables now wrap long cells to the available width, connect their borders, honor left/center/right alignment, and preserve Unicode text and links across line breaks.
+
+ER output includes attributes, PK/FK/UK, comments and relationship cardinalities in both text and images. Invalid edits retain the previous valid diagram. Very narrow tables stack cells to keep every value readable. The application remains a single native executable with no runtime downloads.
 
 Install with curl:
 \`\`\`sh
@@ -30,7 +32,7 @@ The installer detects macOS/Linux and ARM64/x86_64, verifies SHA-256, and instal
 
 All four bundles were built and tested by [GitHub Actions](https://github.com/$GH_REPO/actions/runs/$GITHUB_RUN_ID) at commit $GITHUB_SHA. Each archive includes the executable, version, documentation, installer and license notices; adjacent checksum files and SHA256SUMS cover the downloadable assets.
 
-Existing rendering limits still apply: tmux uses text, real Ghostty/Kitty compositor and SSH image behavior need manual validation, and CJK image labels need a local CJK font. Linux bundles require GNU libc. macOS binaries are not notarized.
+Rendering limits still apply: pie/Gantt and other unlisted Mermaid families are unsupported; unquoted non-ASCII ER attribute identifiers are unsupported, and cyclic ER relationships appear separately in text. tmux uses text, real Ghostty/Kitty compositor and SSH image behavior need manual validation, and CJK image labels need a local CJK font. Linux bundles require GNU libc. macOS binaries are not notarized.
 NOTES
 if [ "$state" = missing ]; then
     gh release create "$RELEASE_TAG" --repo "$GH_REPO" --verify-tag --draft \
